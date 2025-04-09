@@ -1,0 +1,133 @@
+dataset: "scenenn"
+
+cam:
+  img_h: 480
+  img_w: 640
+  depth_scale: 1000.
+  depth_near: 0.1
+  depth_far: 5.
+  bound: True
+
+scene:
+  voxel_size: 0.025  # default: 0.025
+  block_resolution: 4  # default: 4
+  block_count: 100000  # default: 100000
+  mask_num: 2500
+  max_instances: 500
+  max_pts: 1000000
+  point_add: 200000
+  scene_radius_depth_ratio: 3
+  dense_down_ratio: 4  # default: 4
+  dense_down_ratio_sparse: 4
+  dens:
+    sil_threshold: 1.25  # 值越大表示越宽松, default: 0.75
+    depth_error_scale: 50  #值越小表示越宽松, default: 50
+
+pc_extractor:
+  geo_extractor_path: "third_party/FCGF/model/ResUNetBN2C-16feat-3conv.pth"
+  voxel_size: 0.025
+  feature_dim: 16
+
+Model:
+  config_file: "Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml"
+  model_weights: "models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth"
+
+mapping:
+  keyframe_freq: 20
+  keyframe_interval_min: 10
+  keyframe_interval_max: 50
+  iter_num: 20
+  save_interval: 50
+  select_kf_num: 10
+  kf_n_rays_h: 180  # default: 150
+  kf_n_rays_w: 240  # default: 200
+  loss_rgb: 1.  # default: 0.5
+  loss_depth: 0.1
+  d_max: 10
+  map_accum_step: 5  # default: 5
+  lr:
+    means3D: 0.000  # default: 0.0001
+    rgb_colors: 0.0025  # default: 0.0025
+    unnorm_rotations: 0.001  # default: 0.001
+    logit_opacities: 0.05  # default: 0.05
+    log_scales: 0.001  # default: 0.001
+    cam_unnorm_rots: 0.0
+    cam_trans: 0.0
+
+seg:
+  seman_min_value: 0.6
+  merge_overlap_thresh: 0.4  # default: 0.4
+  with_feature: True
+  sim_merge_thresh: 2.3  # default: 2.2
+  merge_contain_iter_num: 10
+  merge_contain_ratio: 0.8  # default: 0.75
+  merge_contain_ratio_feat_list: [0.8, 0.75, 0.7]
+  contain_feature_sim_thresh_list: [2.1, 2.2, 2.3]  # for wo.Transformer, default: 2.0, 2.1, 2.2
+  containing_ratio: 0.8  # default: 0.8
+  contained_ratio: 0.3
+  merge_supporter_num: 5
+  score_threshold: 0.4
+  good_score_threshold: 0.6
+  seg_add_interval: 20
+  merge_kf_interval: 5
+  global_merge_step: 5  # default: 5
+  filter_interval: 100
+  ckpt_interval: 200
+  visibility_thresh: 0.2
+  size_thresh: 200
+  iou_thresh: 0.3
+  contain_ratio: 0.8
+  recall_thresh: 0.5
+  mask_weight_threshold: 5
+  remove_overlap_ratio: 0.7
+  instance_size_g2l: 100
+  top_k_views: 5
+  candidate_k_views: 10
+
+mask:
+  denoise_rm_ratio: 0.2
+  voxel_on_recon_pc: True
+  feature_dim: 1024  # 1024 for CropFormer+CLIP
+  few_pixel_threshold: 400  # 一个detected 2D mask的最小size
+  few_voxel_threshold: 20
+  coverage_threshold: 0.3
+  query_radius: 0.03
+  mask_valid_threshold: 0.7
+  mask_visible_threshold: 0.2  # default: 0.2
+  mask_visible_min_overlap: 500  # default: 500
+  contain_min_threshold: 0.025
+  contained_threshold: 0.8
+  underseg_threshold: 0.3  # default: 0.3
+  view_consensus_threshold: 0.9
+  observer_num_threshold: 3
+  mask_size_threshold: 100
+  merge_overlap_size: 100
+  intersect_threshold: 1000
+  iou_threshold: 0.3
+  precision_threshold: 0.75
+  recall_threshold: 0.75
+  iou_threshold_self: 0.3
+  intersect_check_threshold: 1000
+  precision_check_threshold: 0.3
+  recall_check_threshold: 0.3
+
+classifier:
+  enable: False
+  trust_thresh: 2.5
+  hesitate_thresh: 2.0
+  A: 1.0
+  B: 1.0
+  C: 1.0
+  d: -2.3
+  max_iter: 1000
+  pos_w: 0.001
+  neg_w: 0.0025
+
+save:
+  save_mesh: False
+  save_interval: 400
+  ckpt_interval: 400
+
+vis:
+  vis_color: False
+  vis_pc: False

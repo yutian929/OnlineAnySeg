@@ -1,0 +1,19 @@
+.vscode
+.idea
+__pycache__
+*/__pycache__
+testing
+data
+Dataset/label_feature_scannet200.npy
+ppt
+output
+models/*
+third_party/*
+!third_party/FCGF/
+*.ply
+readme.txt
+readme_env.txt
+
+# eval/scannet200/validation
+eval
+
