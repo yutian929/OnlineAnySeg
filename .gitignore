@@ -3,11 +3,13 @@
 __pycache__
 */__pycache__
 testing
-data
+data/*
+!data/.gitkeep
 Dataset/label_feature_scannet200.npy
 ppt
 output
 models/*
+!models/.gitkeep
 third_party/*
 !third_party/FCGF/
 *.ply
