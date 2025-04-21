@@ -4,7 +4,7 @@ __pycache__
 */__pycache__
 testing
 data/*
-!data/.gitkeep
+!data/SceneNN
 Dataset/label_feature_scannet200.npy
 Dataset/dataset_backup.py
 ppt
