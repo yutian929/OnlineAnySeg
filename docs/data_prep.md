@@ -95,7 +95,7 @@ Link or copy the processed data sequences from downloaded directory to `<OnlineA
 
 Step 4: get GT poses and camera intrinsic file:
 
-run the script to copy the intrinsic file to the directory of each scene, and get the GT poses in the target format:
+run the [following script](../preprocess/SceneNN/process_gt_poses.py) to copy the intrinsic file to the directory of each scene, and get the GT poses in the target format:
 ```
 python ./preprocess/SceneNN/process_gt_poses.py
 ```
