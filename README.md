@@ -199,7 +199,7 @@ For example, if the given sequence is "scene0011_00" in ScanNet dataset, the run
 
 <br>
 
-When finished, the 3D reconstruction and instance segmentation output of this sequence will be found at the `./output/` directory by default (you can also add "--output_dir" to specify output directory).
+When finished, the 3D reconstruction and instance segmentation output of this sequence will be found at `./output/` by default (you can also add "--output_dir" in running command to specify output directory).
 
 
 ### Run all sequences in the dataset
