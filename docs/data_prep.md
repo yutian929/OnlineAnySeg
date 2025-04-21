@@ -53,7 +53,7 @@ SceneNN
 ```
 
 #### (2) Extract and process
-After downloading the selected sequences, you will get a file named `XXX.oni` for each sequence (e.g. `005.oni`). To extract raw RGB-D data for each scene, you can either refer to the [official repository](https://github.com/hkust-vgd/scenenn), or simply follow the steps below:
+After downloading the selected sequences, you will get a file named `XXX.oni` for each sequence (e.g. `005.oni`). To extract raw RGB-D data from it, you can either refer to the [official repository](https://github.com/hkust-vgd/scenenn), or simply follow the steps below:
 
 Step 1: clone the [SceneNN repository](https://github.com/hkust-vgd/scenenn), and compile it to get an executable file named `playback`:
 ```
