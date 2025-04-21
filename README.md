@@ -16,7 +16,7 @@
 ## TODOs
 
 * [X] Release the main code of OnlineAnySeg.
-* [ ] Release the evaluation code.
+* [ ] Release the evaluation code (SOON).
 * [ ] Improvement: replace the threshold-based mask merging strategy with an adaptive approach.
 
 
@@ -66,9 +66,9 @@ sh make.sh
 pip install -U openmim
 mim install mmcv
 ```
-We add additional scripts into cropformer to make it sequentialy process all sequences.
-```bash
-cd ../../../../../../../../
+Then change directory to the root of this repository, and copy additional scripts into cropformer for processing data sequences.
+```
+cd <OnlineAnySeg_root>
 cp scripts/mask_predict/* third_party/detectron2/projects/CropFormer/demo_cropformer
 ```
 Finally, download the [CropFormer checkpoint](https://huggingface.co/datasets/qqlu1992/Adobe_EntitySeg/blob/main/CropFormer_model/Entity_Segmentation/Mask2Former_hornet_3x/Mask2Former_hornet_3x_576d0b.pth) and [CLIP checkpoint](https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/blob/main/open_clip_pytorch_model.bin) and place them in the `./models` directory at the root of the project.
@@ -166,7 +166,7 @@ As long as the segmentation results follow the directory structure above, the fo
 # python main.py -c <config_file> --seq_name <scene_id> -d <sequence_dir> -i <seg_sequence_dir>
 ```
 
-For example, if the given sequence is "scene0011_00" in ScanNet dataset, the running command to run is:
+For example, if the given sequence is "scene0011_00" in ScanNet dataset, the running command is:
 ```
 # python main.py -c config/scannet_cropformer.yaml --seq_name scene0011_00 \
     -d ./data/scannet/scene0011_00/frames \
@@ -176,7 +176,7 @@ For example, if the given sequence is "scene0011_00" in ScanNet dataset, the run
 <details>
   <summary>[Example for running a SceneNN sequence (click to expand)]</summary>
 
-  For example, if the given sequence is "011" in SceneNN dataset, the command to run is:
+  For example, if the given sequence is "011" in SceneNN dataset, the command is:
 
 ```
 # python main.py -c config/sceneNN_cropformer.yaml --seq_name 011 \
@@ -188,7 +188,7 @@ For example, if the given sequence is "scene0011_00" in ScanNet dataset, the run
 <details>
   <summary>[Example for running a custom sequence (click to expand)]</summary>
 
-  For example, if the given sequence is "My_sequence1" in "My_dataset", the command to run is:
+  For example, if the given sequence is "My_sequence1" in "My_dataset", the command is:
 
 ```
 # python main.py -c config/mydataset_cropformer.yaml --seq_name My_sequence1 \
