@@ -71,7 +71,7 @@ Then change directory to the root of this repository, and copy additional script
 cd <OnlineAnySeg_root>
 cp scripts/mask_predict/* third_party/detectron2/projects/CropFormer/demo_cropformer
 ```
-Finally, download the [CropFormer checkpoint](https://huggingface.co/datasets/qqlu1992/Adobe_EntitySeg/blob/main/CropFormer_model/Entity_Segmentation/Mask2Former_hornet_3x/Mask2Former_hornet_3x_576d0b.pth) and [CLIP checkpoint](https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/blob/main/open_clip_pytorch_model.bin) and place them in the `./models` directory at the root of the project.
+Finally, download the [CropFormer checkpoint](https://huggingface.co/datasets/qqlu1992/Adobe_EntitySeg/blob/main/CropFormer_model/Entity_Segmentation/Mask2Former_hornet_3x/Mask2Former_hornet_3x_576d0b.pth) and [CLIP checkpoint](https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/blob/main/open_clip_pytorch_model.bin) and place them into `./models` directory at the root of the repository.
 
 
 (Step 4) FCGF
