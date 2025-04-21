@@ -89,8 +89,8 @@ Link or copy the processed data sequences from downloaded directory to `<OnlineA
                  ├── image00001.png
                  ├── image00002.png
                  └── ...  
-      ├── XXXX
-      └── ...
+      ├── 011
+      └── ...                                 <- other sequences
 ```
 
 Step 4: get GT poses and camera intrinsic file:
@@ -120,8 +120,8 @@ and you will get the following structure finally:
                  ├── 1.txt
                  ├── 2.txt
                  └── ...  
-      ├── XXXX                                <- other sequences
-      └── ...
+      ├── 011
+      └── ...                                 <- other sequences
 ```
 Once you get the directory structure above under `<OnlineAnySeg_root>`, the data preparation for SceneNN dataset is finished.
 
