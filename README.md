@@ -1,7 +1,7 @@
 # OnlineAnySeg: Online Zero-Shot 3D Segmentation by Visual Foundation Model Guided 2D Mask Merging
 ### [Project Page](https://yjtang249.github.io/OnlineAnySeg/) | [Paper](https://arxiv.org/pdf/2503.01309)
 
-##### [Yijie Tang*](https://github.com/yjtang249), [Jiazhao Zhang*](https://jzhzhang.github.io/), Yuqing Lan, [Yulan Guo](https://www.yulanguo.cn), Dezun Dong, [Chenyang Zhu†](https://www.zhuchenyang.net), [Kai Xu†](https://kevinkaixu.net)
+#### [Yijie Tang*](https://github.com/yjtang249), [Jiazhao Zhang*](https://jzhzhang.github.io/), Yuqing Lan, [Yulan Guo](https://www.yulanguo.cn), Dezun Dong, [Chenyang Zhu†](https://www.zhuchenyang.net), [Kai Xu†](https://kevinkaixu.net)
 
 \*Equal Contribution, †Corresponding Authors
 
