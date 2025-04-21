@@ -134,12 +134,12 @@ For custom data sequences, it is recommended to adopt the following directory st
       ├── My_sequence1
           ├── intrinsic_depth.txt             <- camera intrinsics
           ├── color                           <- folder with RGB images
-          │      ├── 0.jpg  (or .png/.jpeg)
-          │      ├── 1.jpg (or .png/.jpeg)
+          │      ├── 0.png  (or .jpg/.jpeg)
+          │      ├── 1.png  (or .jpg/.jpeg)
           │      └── ...  
           ├── depth                           <- folder with depth images
           │      ├── 0.png  (or .jpg/.jpeg)
-          │      ├── 1.png (or .jpg/.jpeg)
+          │      ├── 1.png  (or .jpg/.jpeg)
           │      └── ...  
           └── poses                           <- folder with camera poses (4X4 camera_to_world matrix)
                  ├── 0.txt
