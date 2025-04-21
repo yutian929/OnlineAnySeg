@@ -65,7 +65,7 @@ cd playback && make all
 
 Step 2: use the executable `playback` to extract RGB-D frames for a selected sequence:
 
-Take `005.oni` as example, run the following command (You can modify the output directory as `<OnlineAnySeg_root>/data/SceneNN`):
+Take `005.oni` as example, run the following command, where the second parameter indicates output directory (You can set it as `<OnlineAnySeg_root>/data/SceneNN/005`):
 ```
 ./playback XXXX/005.oni XXXX/005
 ```
