@@ -10,15 +10,15 @@ dataset_dir = "./data/SceneNN"
 
 
 def read_file_in_chunks(filename):
-    chunks = []  # 存储所有数据块
+    chunks = []
     with open(filename, 'r') as file:
-        chunk = []  # 临时存储每个数据块的列表
+        chunk = []
         for i, line in enumerate(file):
-            chunk.append(line.strip())  # 去除行尾换行符并添加到当前数据块
-            if (i + 1) % 5 == 0:  # 每5行分成一个块
+            chunk.append(line.strip())
+            if (i + 1) % 5 == 0:
                 chunks.append(chunk)
-                chunk = []  # 重置为下一个数据块
-        if chunk:  # 如果最后的块不足5行，也加入chunks
+                chunk = []
+        if chunk:
             chunks.append(chunk)
     return chunks
 
