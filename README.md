@@ -86,7 +86,8 @@ If it is not installed successfully, you can try to install it from a local clon
 ```
 cd third_party
 git clone https://github.com/NVIDIA/MinkowskiEngine.git
-cd MinkowskiEngine && python setup.py install --blas_include_dirs=${CONDA_PREFIX}/include --blas=openblas
+cd MinkowskiEngine
+python setup.py install --blas_include_dirs=${CONDA_PREFIX}/include --blas=openblas
 ```
 
 
