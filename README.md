@@ -92,7 +92,7 @@ cd MinkowskiEngine && python setup.py install --blas_include_dirs=${CONDA_PREFIX
 
 ## 3. Running
 ### Run a given sequence (demo)
-Here we introduce how to run a given sequence (ScanNet, SceneNN or customized sequence).
+In this section, we introduce how to run a given sequence (ScanNet, SceneNN or custom sequence).
 
 (Step 1) To segment a given sequence, and save detected 2D masks as well as corresponding CLIP features to the specified dir, you can run the following command:
 ```
@@ -149,6 +149,8 @@ For example, if the given sequence is "scene0011_00" in ScanNet, the command to 
 ```
 </details>
 
+<br>
+
 After running the command, you can find the following directory structure in `<seg_output_dir_of_dataset>/<scene_id>`:
 ```
 <seg_output_dir_of_dataset>
@@ -157,14 +159,14 @@ After running the command, you can find the following directory structure in `<s
          ├── mask_color         # segmented 2D masks of each frame (only for visualization)
          └── mask_embeddings    # extracted CLIP features of the 2D masks
 ```
-For other datasets or customized sequences, you can adjust the command-line arguments accordingly. As long as the segmentation results follow the directory structure shown above, the subsequent steps should work seamlessly.
+As long as the segmentation results follow the directory structure above, the following steps will work seamlessly for any dataset.
 
 (Step 2) process the RGB-D sequence:
 ```
 # python main.py -c <config_file> --seq_name <scene_id> -d <sequence_dir> -i <seg_sequence_dir>
 ```
 
-For example, if the given sequence is "scene0011_00" in ScanNet, the running command to run is:
+For example, if the given sequence is "scene0011_00" in ScanNet dataset, the running command to run is:
 ```
 # python main.py -c config/scannet_cropformer.yaml --seq_name scene0011_00 \
     -d ./data/scannet/scene0011_00/frames \
@@ -173,13 +175,29 @@ For example, if the given sequence is "scene0011_00" in ScanNet, the running com
 
 <details>
   <summary>[Example for running a SceneNN sequence (click to expand)]</summary>
-  For example, if the given sequence is "011" in SceneNN, the command to run is:
+
+  For example, if the given sequence is "011" in SceneNN dataset, the command to run is:
+
 ```
 # python main.py -c config/sceneNN_cropformer.yaml --seq_name 011 \
     -d ./data/SceneNN/011 \
     -i ./data/SceneNN/seg_result/011
 ```
 </details>
+
+<details>
+  <summary>[Example for running a custom sequence (click to expand)]</summary>
+
+  For example, if the given sequence is "My_sequence1" in "My_dataset", the command to run is:
+
+```
+# python main.py -c config/mydataset_cropformer.yaml --seq_name My_sequence1 \
+    -d ./data/My_dataset/My_sequence1 \
+    -i ./data/My_dataset/seg_result/My_sequence1
+```
+</details>
+
+<br>
 
 When finished, the 3D reconstruction and instance segmentation output of this sequence will be found at the `./output/` directory by default (you can also add "--output_dir" to specify output directory).
 
