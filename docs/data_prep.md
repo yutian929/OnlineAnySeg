@@ -49,7 +49,7 @@ SceneNN
       └── 005.oni                 /* the raw RGB-D video               */
   └── intrinsic
       └── asus.ini                /* intrinsic matrix data for Asus Xtion camera  */
-  	└── kinect2.ini             /* intrinsic matrix data for Kinect v2 camera   */
+  	└── kinect2.ini               /* intrinsic matrix data for Kinect v2 camera   */
 ```
 
 #### (2) Extract and process
