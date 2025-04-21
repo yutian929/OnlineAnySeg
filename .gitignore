@@ -6,6 +6,7 @@ testing
 data/*
 !data/.gitkeep
 Dataset/label_feature_scannet200.npy
+Dataset/dataset_backup.py
 ppt
 output
 models/*

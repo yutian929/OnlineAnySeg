@@ -9,7 +9,7 @@
 
 <!-- ![image](figs/teaser.png) -->
 <div align=center>
-<img src=figs/teaser1.png width=50%/>
+<img src=figs/overview.png width=95%/>
 </div>
 
 
@@ -20,8 +20,8 @@
 * [ ] Improvement: replace the threshold-based mask merging strategy with an adaptive approach.
 
 
-## 1. Data preparation
-For dataset preparation, please refer to the following documentation, which introduce how to prepare data from [ScanNet](https://kaldir.vc.in.tum.de/scannet_benchmark/), [SceneNN](https://hkust-vgd.github.io/scenenn/) and customized sequence.
+## 1. Data Preparation
+For dataset preparation, please refer to the following documentation, which introduces how to prepare data from [ScanNet](https://kaldir.vc.in.tum.de/scannet_benchmark/), [SceneNN](https://hkust-vgd.github.io/scenenn/) as well as custom sequences.
 
 * [Data preparation](./docs/data_prep.md)
 
@@ -103,7 +103,7 @@ Here we introduce how to run a given sequence (ScanNet, SceneNN or customized se
     --pretrained_path <CLIP_checkpoint_path> \
     --opts MODEL.WEIGHTS <Cropformer_checkpoint_path>
 ```
-For example, if the given sequence is "scene0011_00" in [ScanNet](https://kaldir.vc.in.tum.de/scannet_benchmark/), the command to run is:
+For example, if the given sequence is "scene0011_00" in ScanNet, the command to run is:
 ```
 # python third_party/detectron2/projects/CropFormer/demo_cropformer/mask_predict_single_seq_w_semantic.py \
     --root ./data/scannet \
@@ -112,6 +112,43 @@ For example, if the given sequence is "scene0011_00" in [ScanNet](https://kaldir
     --pretrained_path ./models/open_clip_pytorch_model.bin \
     --opts MODEL.WEIGHTS ./models/Mask2Former_hornet_3x_576d0b.pth
 ```
+
+<details>
+  <summary>[Example for a SceneNN sequence (click to expand)]</summary>
+
+  For example, if the given sequence is "011" in SceneNN, the command to run is:
+
+```
+# python third_party/detectron2/projects/CropFormer/demo_cropformer/mask_predict_single_seq_w_semantic.py \
+   --root ./data/SceneNN \
+   --seq_name 011 \
+   --output_root ./data/SceneNN/seg_result \
+   --image_path_pattern image/* \
+   --seg_interval 20 \
+   --pretrained_path ./models/open_clip_pytorch_model.bin \
+   --opts MODEL.WEIGHTS ./models/Mask2Former_hornet_3x_576d0b.pth
+
+```
+</details>
+
+<details>
+  <summary>[Example for a custom data sequence (click to expand)]</summary>
+
+  For example, if the given sequence is "My_sequence1" in "My_dataset", the command to run is:
+
+```
+# python third_party/detectron2/projects/CropFormer/demo_cropformer/mask_predict_single_seq_w_semantic.py \
+   --root ./data/My_dataset \
+   --seq_name My_sequence1 \
+   --output_root ./data/My_dataset/seg_result \
+   --image_path_pattern color/* \
+   --seg_interval 20 \
+   --pretrained_path ./models/open_clip_pytorch_model.bin \
+   --opts MODEL.WEIGHTS ./models/Mask2Former_hornet_3x_576d0b.pth
+
+```
+</details>
+
 After running the command, you can find the following directory structure in `<seg_output_dir_of_dataset>/<scene_id>`:
 ```
 <seg_output_dir_of_dataset>
@@ -126,23 +163,38 @@ For other datasets or customized sequences, you can adjust the command-line argu
 ```
 # python main.py -c <config_file> --seq_name <scene_id> -d <sequence_dir> -i <seg_sequence_dir>
 ```
-For example, if the given sequence is "scene0011_00" in [ScanNet](https://kaldir.vc.in.tum.de/scannet_benchmark/), the command to run is:
+
+For example, if the given sequence is "scene0011_00" in ScanNet, the running command to run is:
 ```
-# python main.py -c config/scannet_cropformer.yaml --seq_name scene0011_00 -d ./data/scannet/scene0011_00/frames \
+# python main.py -c config/scannet_cropformer.yaml --seq_name scene0011_00 \
+    -d ./data/scannet/scene0011_00/frames \
     -i ./data/scannet/seg_result/scene0011_00
 ```
-When finished, the output will be found in the `./output/` directory by default.
+
+<details>
+  <summary>[Example for running a SceneNN sequence (click to expand)]</summary>
+  For example, if the given sequence is "011" in SceneNN, the command to run is:
+```
+# python main.py -c config/sceneNN_cropformer.yaml --seq_name 011 \
+    -d ./data/SceneNN/011 \
+    -i ./data/SceneNN/seg_result/011
+```
+</details>
+
+When finished, the 3D reconstruction and instance segmentation output of this sequence will be found at the `./output/` directory by default (you can also add "--output_dir" to specify output directory).
 
 
-### Run all scenes in the dataset
+### Run all sequences in the dataset
 TODO
 
+## 4. Evaluation
+TODO
 
-## Acknowledgement
+## 5. Acknowledgement
 Parts of the code are modified from [MaskClustering](https://github.com/PKU-EPIC/MaskClustering) and [OpenFusion](https://github.com/UARK-AICV/OpenFusion). Thanks to the original authors.
 
 
-## Citation
+## 6. Citation
 If you find our code or paper useful, please cite
 ```
 @article{tang2025onlineanyseg,

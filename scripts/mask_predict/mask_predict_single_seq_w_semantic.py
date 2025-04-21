@@ -47,10 +47,10 @@ def setup_cfg(args):
 def load_clip(pretrained_path=None):
     print(f'[INFO] loading CLIP model...')
 
-    if pretrained_path is None:
+    if pretrained_path is None or not os.path.exists(pretrained_path):
         model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
     else:
-        model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained=pretrained_path)  # load from local (OK!)
+        model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained=pretrained_path)  # load from local
 
     model.cuda()
     model.eval()
@@ -62,7 +62,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description="maskformer2 demo for builtin configs")
     parser.add_argument(
         "--config-file",
-        default="../configs/entityv2/entity_segmentation/mask2former_hornet_3x.yaml",
+        default="third_party/detectron2/projects/CropFormer/configs/entityv2/entity_segmentation",
         metavar="FILE",
         help="path to config file",
     )
@@ -78,7 +78,12 @@ def get_parser():
     parser.add_argument(
         "--image_path_pattern",
         type=str,
-        default="frames/color/*0.jpg",
+        default="frames/color/*",
+    )
+    parser.add_argument(
+        "--seg_interval",
+        type=int,
+        default=10,
     )
     parser.add_argument(
         "--output_root",
@@ -127,16 +132,19 @@ def get_parser():
 
 
 class ImageDataset(Dataset):
-    def __init__(self, cfg, seq_name, root_dir, output_root, image_path_pattern, dst_h, dst_w, confidence_threshold):
+    def __init__(self, cfg, seq_name, root_dir, output_root, image_path_pattern, seg_interval, dst_h, dst_w, confidence_threshold):
         self.seq_name = seq_name
         self.seq_dir = os.path.join(root_dir, seq_name)  # root dir of this sequence
         self.output_seq_dir = os.path.join(output_root, seq_name)
         self.dst_h = dst_h
         self.dst_w = dst_w
         self.confidence_threshold = confidence_threshold
+        self.seg_interval = seg_interval
 
         color_path_list = glob.glob(os.path.join(self.seq_dir, image_path_pattern))
-        self.image_list = ns.natsorted(color_path_list)  # path of each RGB image, 按照frame_id升序排列好
+        self.image_list = ns.natsorted(color_path_list)  # path of each RGB image, sorted by frame_ID
+        if seg_interval > 1:
+            self.image_list = self.image_list[::seg_interval]
 
         self.output_mask_dir = os.path.join(self.output_seq_dir, 'mask')
         self.output_mask_color_dir = os.path.join(self.output_seq_dir, 'mask_color')
@@ -180,7 +188,7 @@ if __name__ == "__main__":
     cfg = setup_cfg(args)
 
     # Step 1: preparation
-    my_dataset = ImageDataset(cfg, args.seq_name, args.root, args.output_root, args.image_path_pattern, args.dst_h, args.dst_w, args.confidence_threshold)
+    my_dataset = ImageDataset(cfg, args.seq_name, args.root, args.output_root, args.image_path_pattern, args.seg_interval, args.dst_h, args.dst_w, args.confidence_threshold)
     my_dataloader = DataLoader(my_dataset)
 
     # load CLIP model
@@ -250,4 +258,3 @@ if __name__ == "__main__":
         output_embeddings_basename = os.path.basename(path).split('.')[0] + '.pt'
         embeddings_path = os.path.join(my_dataset.output_mask_feature_dir, output_embeddings_basename)
         torch.save(mask_visual_embeddings, embeddings_path)
-    # END for (this frame)

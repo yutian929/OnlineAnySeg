@@ -357,6 +357,7 @@ class MyDataset(Dataset):
             self.cam_intrinsic[1, 2] -= self.h_crop
 
         self.pinhole_cam_intrinsic = self.get_intrinsics(self.cam_intrinsic.cpu().numpy())  # o3d.camera.PinholeCameraIntrinsic obj
+        self.rgb_files, self.depth_files = self.get_rgbd()
 
     def get_scene_img_num(self):
         color_img_list = os.listdir(os.path.join(self.data_location, "color"))
@@ -403,14 +404,20 @@ class MyDataset(Dataset):
         intrinsic_cam_parameters.set_intrinsics(self.target_w, self.target_h, intrinsic_mat[0, 0], intrinsic_mat[1, 1], intrinsic_mat[0, 2], intrinsic_mat[1, 2])
         return intrinsic_cam_parameters
 
+    def get_rgbd(self):
+        rgb_dir = os.path.join(self.data_location, "color")
+        depth_dir = os.path.join(self.data_location, "depth")
+        rgb_files = natsorted( os.listdir(rgb_dir) )
+        depth_files = natsorted( os.listdir(depth_dir) )
+        return rgb_files, depth_files
+
     def __getitem__(self, index):
-        formatted_index = str(index).zfill(4)
-        color_img_path = os.path.join(self.data_location, "color", "%s-color.png" % formatted_index)
-        depth_img_path = os.path.join(self.data_location, "depth", "%s-depth.png" % formatted_index)
+        color_img_path = self.rgb_files[index]
+        depth_img_path = self.depth_files[index]
 
         # Step 1: load segmentation image (and semantic feature of each detected mask)
-        mask_image_basename = "%s-color.png" % formatted_index
-        mask_embed_basename = "%s-color.pt" % formatted_index
+        mask_image_basename = "%d.png" % index
+        mask_embed_basename = "%d.pt" % index
         if mask_image_basename in self.mask_basename_list and mask_embed_basename in self.mask_embed_basename_list:
             instance_path = os.path.join(self.mask_image_dir, mask_image_basename)
             segmentation = cv2.imread(instance_path, cv2.IMREAD_UNCHANGED)  # ndarray(H, W), dtype=uint8
