@@ -69,7 +69,7 @@ Take `005.oni` as example, run the following command (You can modify the output 
 ```
 ./playback XXXX/005.oni XXXX/005
 ```
-or you can process all selected sequences using this [script](./data/SceneNN/decompress_all_seqs.sh).
+or you can process all selected sequences using this [script](../data/SceneNN/decompress_all_seqs.sh).
 
 
 Step 3:
