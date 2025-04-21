@@ -35,7 +35,7 @@ After downloading the data and process it using the official script, you will ge
 ### 2. SceneNN Dataset
 #### (1) Access and download raw data
 
-You can access SceneNN dataset from the [official repository](https://github.com/hkust-vgd/scenenn). The IDs of sequences we use includes: [005, 011, 015, 030, 054, 080, 089, 093, 096, 243, 263, 322]. You can obtain the raw RGB-D data of selected sequences following the official guidance, or download them directly [here](https://hkust-vgd.ust.hk/scenenn/main/oni/). Then you need to download GT trajectory and mesh of selected sequences [here](https://drive.google.com/drive/folders/0B2BQi-ql8CzeMUZ4RUpnLW1JN3c?resourcekey=0-Ph3VntNntNqJ_CtSLnN7wA).
+You can access SceneNN dataset from the [official repository](https://github.com/hkust-vgd/scenenn). The IDs of sequences we use include: [005, 011, 015, 030, 054, 080, 089, 093, 096, 243, 263, 322]. You can obtain the raw RGB-D data of selected sequences following the official guidance, or download them directly [here](https://hkust-vgd.ust.hk/scenenn/main/oni/). Then you need to download GT trajectory and mesh of selected sequences [here](https://drive.google.com/drive/folders/0B2BQi-ql8CzeMUZ4RUpnLW1JN3c?resourcekey=0-Ph3VntNntNqJ_CtSLnN7wA).
 
 According to the [official guidance](https://github.com/hkust-vgd/scenenn), you will firstly get the following directory structure in the downloaded directory:
 
