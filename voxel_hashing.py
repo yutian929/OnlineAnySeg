@@ -26,7 +26,6 @@ class VoxelHashTable:
         self.hash_table = None
         self.hash_item_flag = None
         self.initialize()
-    # END __init__()
 
     @property
     def get_occupied_voxels(self):
