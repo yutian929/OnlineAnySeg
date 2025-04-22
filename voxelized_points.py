@@ -175,22 +175,20 @@ class VoxelBlockGrid:
         return mask_points_remained
 
 
-    # @brief: 给定一帧分割出的2D mask image(以及深度图), 找到该帧检测出的各2D mask各自对应的voxels(通过ball_query的方式);
+    # @brief: giving a segmented 2D mask image(and depth image), find the voxels corresponding to each mask;
     # @param depth_image: Tensor(H, W);
     # @param pose_c2w: Tensor(4, 4);
     # @param frame_voxel_coords: 该帧所包含的voxel的世界坐标, Tensor(v_num, 3), dtype=float32;
     # @param seg_image: segmentation mask image of this frame, each pixel corresponds to mask_id, Tensor(H, W), dtype=uint8, device=cuda;
     # @param mask_features: visual embedding of each mask in this frame, Tensor(mask_num, 512), dtype=float32;
-    #-@return mask_info: 该帧检测出的各2D mask各自对应的点的voxel的Voxel coordinates, {2D mask_id: (voxel_coord0, voxel_coord1, voxel_coord2, ...)}, dict of Tensor, dtype=float32;
-    #-@return valid_mask_ids: 该帧检测出的2D mask哪些是valid的, list(int);
-    #-@return uniq_frame_voxel_coords: 与当前帧中至少1个mask上某个点关联 的点的voxel coordinates, Tensor(re_voxel_num, 3), dtype=int64.
-    #-@return valid_mask_features:
+    #-@return mask_info: voxel coordinates corresponding to each 2D mask, {mask_id: (voxel_coord0, voxel_coord1, voxel_coord2, ...)}, dict of Tensor, dtype=float32;
+    #-@return valid_mask_ids: which 2D masks are valid in this frame, list(int);
     def turn_mask_to_voxel(self, frame_id, depth_image, pose_c2w, frame_voxel_coords, seg_image, mask_features=None):
         if torch.sum(torch.isinf(pose_c2w)) > 0:
             return {}, [], None, []
 
         # Step 1: preparation
-        # 1.1: 找到当前帧的seg image中所有mask_ids
+        # 1.1: get all 2D mask_IDs
         seg_image_reshape = seg_image.reshape(-1)  # Tensor(H * W)
         mask_ids = torch.unique(seg_image_reshape)  # mask_ids of all detected masks, Tensor(m, ), dtype=uint8
         mask_ids.sort()
@@ -201,7 +199,7 @@ class VoxelBlockGrid:
         # 1.3: for each pixel in this RGB-D frame, compute its corresponding voxel
         frame_points = get_pointcloud_xyz(depth_image, self.intrinsics, pose_c2w, mask=depth_mask).float()  # pointcloud of this frame(in World CS), Tensor(pts_num, 3)
 
-        # Step 2: 对当前帧上的每个2D mask，找到其在当前帧点云中对应的3D点
+        # Step 2: for each 2D mask in current frame, compute its corresponding voxel coordinates in current frame's pointcloud
         valid_mask_ids = []
         valid_mask_point_list = []
         mask_points_num_list = []
@@ -212,7 +210,7 @@ class VoxelBlockGrid:
             if mask_id == 0:
                 continue
 
-            # 2.1: 提取该mask对应的points
+            # 2.1: extract corresponding points of this mask
             segmentation_mask = (seg_image_reshape == mask_id)  # 所有像素上mask_id等于给定mask_values的那些像素的mask, Tensor(H * W, ), dtype=bool
             valid_mask = segmentation_mask[depth_mask]  # 该帧上mask_id等于当前给定值 且 depth>0 的像素的mask, Tensor(pts_num, )
             if torch.count_nonzero(valid_mask) < self.few_pixel_threshold:
@@ -231,7 +229,7 @@ class VoxelBlockGrid:
             mask_points_num_list.append(mask_pts_remained.shape[0])
             scene_points_list.append(cropped_scene_points)
             scene_points_num_list.append(cropped_scene_points.shape[0])
-        # END for
+
 
         # Step 3: for each valid mask, get its corresponding voxels by ball_query
         if len(valid_mask_ids) == 0 or all( [sp.numel() == 0 for sp in scene_points_list] ):
@@ -253,14 +251,14 @@ class VoxelBlockGrid:
             mask_id = valid_mask_ids[i]
 
             # 4.1: get query result for this mask
-            mask_neighbor = corr_voxels_in_scene[i]  # 该mask 在当前帧点云上的每个点 各自在 当前Local pointcloud中的top K neighbors, Tensor(mask_pts_num, 10)
-            mask_point_num = mask_points_num_list[i]  # 该mask在当前帧点云上的点数, Pi
-            mask_neighbor = mask_neighbor[:mask_point_num]  # 该mask在当前帧点云上各点对应在GT点云上的neighbors(的point_indices), Tensor(Pi, 10)
+            mask_neighbor = corr_voxels_in_scene[i]
+            mask_point_num = mask_points_num_list[i]  # Pi
+            mask_neighbor = mask_neighbor[:mask_point_num]  # Tensor(Pi, 10)
 
             valid_neighbor = (mask_neighbor != -1)  # Tensor(Pi, 10), dtype=bool
-            neighbor = torch.unique(mask_neighbor[valid_neighbor])  # 该mask(的点云)对应到cropped points的中点 的point_indices, Tensor(uniq_m_num, )
-            corr_involved_voxels = scene_points_list[i][neighbor]  # 该mask(的点云)在scene pointcloud中对应点 的coords, Tensor(uniq_m_num, 3)
-            coverage = torch.any(valid_neighbor, dim=1).sum().item() / mask_point_num  # 该mask在当前中点云中的点 有多少个在GT点云中有对应点 / 该mask在当前中点云中的点数
+            neighbor = torch.unique(mask_neighbor[valid_neighbor])
+            corr_involved_voxels = scene_points_list[i][neighbor]
+            coverage = torch.any(valid_neighbor, dim=1).sum().item() / mask_point_num
 
             if (coverage < self.coverage_threshold) or (corr_involved_voxels.shape[0] < self.few_voxel_threshold):
                 continue
@@ -270,7 +268,6 @@ class VoxelBlockGrid:
                 valid_mask_features.append(mask_features[mask_id - 1])
             mask_info[mask_id] = corr_involved_voxels
             frame_voxels_coords.append(corr_involved_voxels)
-        # END for
 
         if len(frame_voxels_coords) > 0:
             frame_voxels_coords = torch.cat(frame_voxels_coords, dim=0)
@@ -280,30 +277,3 @@ class VoxelBlockGrid:
 
         return mask_info, final_valid_mask_ids, uniq_frame_voxel_coords, valid_mask_features
 
-
-    ####################################### vis helper functions #######################################
-    def save_pc_uniform_color(self, pts, save_path=None, pc_color=[1., 0., 0.]):
-        if isinstance(pts, torch.Tensor):
-            pts = pts.cpu().numpy()
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(pts)
-        pc.estimate_normals()
-        pc.paint_uniform_color(np.array(pc_color).astype("float64"))
-
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            o3d.io.write_point_cloud(save_path, pc)
-        return pc
-
-    def save_pc(self, points, colors, save_path=None):
-        if isinstance(points, torch.Tensor):
-            points = points.cpu().numpy()
-        if isinstance(colors, torch.Tensor):
-            colors = colors.cpu().numpy()
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd.colors = o3d.utility.Vector3dVector(colors)
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            o3d.io.write_point_cloud(save_path, pcd)
-        return pcd

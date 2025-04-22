@@ -152,11 +152,3 @@ class VoxelHashTable:
         overlap_mask_ids, overlap_mask_counts = merge_sets_and_count(voxel_items, self.device)
 
         return overlap_mask_ids, overlap_mask_counts, voxel_ids
-
-    ########################################################## TEST functions ##########################################################
-    def voxel_coords_set_intersect(self, voxel_coords1, voxel_coords2):
-        voxel_indices1 = self.voxel_coords2voxel_indices(voxel_coords1)
-        voxel_indices2 = self.voxel_coords2voxel_indices(voxel_coords2)
-        mask_1in2 = torch.isin(voxel_indices1, voxel_indices2)
-        intersect_voxel_coords = voxel_coords1[mask_1in2]
-        return intersect_voxel_coords
