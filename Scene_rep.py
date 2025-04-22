@@ -758,7 +758,7 @@ class Scene_rep:
             mask_geo_features_new[new_mask_counter] = self.get_mask_geo_features[mask_id_kept]
             mask_geo_features_mask_new[new_mask_counter] = self.get_mask_geo_features_mask[mask_id_kept]
             merged_mask_size_new.append(self.merged_mask_size[mask_id_kept])
-            merged_mask_weight_new[new_mask_counter] = self.get_merged_mask_weight[mask_id_kept]  # 记得，这里不是直接赋1，是赋该merged mask之前的weight值
+            merged_mask_weight_new[new_mask_counter] = self.get_merged_mask_weight[mask_id_kept]  # set as former weight value rather than 1
             merged_mask_last_frame_new[new_mask_counter] = self.get_merged_mask_last_frame[mask_id_kept]
             new_mask_counter += 1
 
@@ -775,7 +775,6 @@ class Scene_rep:
         self.merged_mask_size = merged_mask_size_new
         self.merged_mask_weight = merged_mask_weight_new
         self.merged_mask_last_frame = merged_mask_last_frame_new
-    # END remove_masks()
 
 
     # @brief: save latest segmentation results
