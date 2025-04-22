@@ -14,12 +14,14 @@ models/*
 third_party/*
 !third_party/FCGF/
 *.ply
-readme.txt
-readme_env.txt
 
 Scene_rep_backup.py
 Time_counter.py
 Bi_plane_classifier.py
+
+readme.txt
+readme_env.txt
+
 # eval/scannet200/validation
 eval
 
