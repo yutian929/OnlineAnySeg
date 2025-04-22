@@ -447,8 +447,8 @@ class Scene_rep:
         if self.save_interval > 0 and frame_id % self.save_interval == 0:
             self.save_merging_result(frame_id, valid_merged_mask_ids)  # *** save result after merging
 
-        # Step 4: 对于当前所有的valid merged masks, 如果其中某个mask_A几乎被另一个mask_B包含，则将它们，合并
-        # *** 注意: 该合并过程是一个iterative的过程，即每次必须保证一个小mask最多只能被一个大mask给contain
+        # Step 4: for all valid merged_masks, if A is almost contained by B, merge them
+        # *** An iterative process. Ensuring that in each iteration a small mask can only be contained by at most 1 big mask
         if valid_merged_mask_ids is not None and valid_merged_mask_ids.shape[0] > 0:
             for iter_merge in range(self.merge_contain_iter_num):
                 c_mat = self.get_containing_mat
@@ -486,7 +486,6 @@ class Scene_rep:
 
             if self.save_interval > 0 and frame_id % self.save_interval == 0:
                 self.save_merging_result(frame_id, valid_merged_mask_ids=None)  # *** save result after merging
-        # END Step 4
 
         # Step 5: remove mis-segmented raw masks periodically
         self.select_masks_to_remove(frame_id)
@@ -497,7 +496,7 @@ class Scene_rep:
             points, colors = self.get_pc()
 
             # 6.2: get current valid merged masks
-            mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])  # weight超过该阈值的merged mask才展示
+            mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])  # only merged_mask with weight>threshold will be visualized
             valid_merged_mask_ids = torch.where(self.merged_mask_weight[:self.c_mask_num] >= mask_weight_threshold)[0]
 
             # 6.3: for each valid merged mask, get its Instance obj and corresponding voxel coordinates
@@ -506,11 +505,9 @@ class Scene_rep:
             instance_pts_mask_list = self.get_instance_scene_pts_mask(valid_instance_coords_list, points)
 
             self.vis_pc.show_current_seg_pc(points, valid_instance_list, instance_pts_mask_list)
-        # END step 6
 
         torch.cuda.empty_cache()
         print("Finish merging at frame_%d ! Current merged mask number = %d" % (frame_id, self.c_mask_num))
-    # END update_masks()
 
 
     # @brief: invoked function for periodical mask removing;
