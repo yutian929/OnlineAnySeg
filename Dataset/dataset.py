@@ -50,7 +50,7 @@ class SceneNNDataset(Dataset):
             self.load_bound()
         self.min_max_xyz = self.get_bbox(self.gt_ply_file)
         self.pinhole_cam_intrinsic = self.get_intrinsics(self.cam_intrinsic.cpu().numpy())  # o3d.camera.PinholeCameraIntrinsic obj
-    # END __init__()
+
 
     def get_scene_pose_num(self):
         pose_list = os.listdir(os.path.join(self.data_location, "pose"))
@@ -161,7 +161,6 @@ class SceneNNDataset(Dataset):
 
         pose_matrix = self.poses[index]  # pose_c2w, Tensor(4, 4)
         return color_img, depth_img, pose_matrix, segmentation, mask_embeddings, seg_flag
-# END class SceneNNDataset
 
 
 class ScannetDataset(Dataset):
@@ -202,6 +201,7 @@ class ScannetDataset(Dataset):
             self.cam_intrinsic[1, 2] -= self.h_crop
 
         self.pinhole_cam_intrinsic = self.get_intrinsics(self.cam_intrinsic.cpu().numpy())  # o3d.camera.PinholeCameraIntrinsic obj
+
 
     def get_scene_img_num(self):
         color_img_list = os.listdir(os.path.join(self.data_location, "color"))
@@ -320,7 +320,6 @@ class ScannetDataset(Dataset):
 
         pose_matrix = self.poses[index]  # Tensor(4, 4)
         return color_img, depth_img, pose_matrix, segmentation, mask_embeddings, seg_flag
-# END class ScannetDataset
 
 
 class MyDataset(Dataset):
@@ -358,6 +357,7 @@ class MyDataset(Dataset):
 
         self.pinhole_cam_intrinsic = self.get_intrinsics(self.cam_intrinsic.cpu().numpy())  # o3d.camera.PinholeCameraIntrinsic obj
         self.rgb_files, self.depth_files = self.get_rgbd()
+
 
     def get_scene_img_num(self):
         color_img_list = os.listdir(os.path.join(self.data_location, "color"))
@@ -440,10 +440,8 @@ class MyDataset(Dataset):
 
         color_img = cv2.imread(color_img_path)
         color_img = cv2.cvtColor(color_img, cv2.COLOR_BGR2RGB)  # BGR --> RGB
-        # color_img = cv2.imread(color_img_path)
         if color_img.shape[0] != depth_img.shape[0] or color_img.shape[1] != depth_img.shape[1]:
             color_img = cv2.resize(color_img, (depth_img.shape[1], depth_img.shape[0]), interpolation=cv2.INTER_NEAREST)
-        # color_img = color_img[:, :, ::-1]  # BGR2RGB
 
         color_img = torch.from_numpy(color_img).to(self.device) / 255  # Tensor(j, w, 3), [0, 1], dtype=float32
         depth_img = torch.from_numpy(depth_img).to(self.device)  # Tensor(h, w)
@@ -459,4 +457,3 @@ class MyDataset(Dataset):
 
         pose_matrix = self.poses[index]  # Tensor(4, 4)
         return color_img, depth_img, pose_matrix, segmentation, mask_embeddings, seg_flag
-# END class ScannetDataset

@@ -15,7 +15,6 @@ class Metrics:
 
         ################## members for Bi-plane classifier ##################
         self.total_mask_num = self.cfg["scene"]["mask_num"]  # total mask num
-        # self.tracked_id2merged_id = -1 * torch.ones((self.total_mask_num, ), dtype=torch.float32, device=self.device)  # 记录每个tracked mask当前对应的merged_mask_ID (需同步更新)
         self.mapping_frame_Id = -1
         self.raw_ID2new_ID = None
 

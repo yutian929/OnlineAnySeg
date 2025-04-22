@@ -13,9 +13,6 @@ from Scene_rep import Scene_rep
 max_frame_num = None
 
 
-"""branch: main"""
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, default="./config/scannet_yuan.yaml")
