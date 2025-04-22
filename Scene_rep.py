@@ -16,7 +16,7 @@ from MaskGraph import MaskGraph
 from Metrics import Metrics
 from tool.geometric_helpers import compute_complementary, keep_min_rows
 from tool.helper_functions import create_lower_triangular_matrix, set_diagonal_to_zero, set_row_and_column_zero, get_pointcloud, do_clustering, \
-            extract_rows_and_cols, mask_matrix_rows_and_cols, retain_max_per_column, assign_elements_2d
+        extract_rows_and_cols, mask_matrix_rows_and_cols, retain_max_per_column, assign_elements_2d
 from tool.post_process import filter_instances, export_instance_mask
 from tool.visualization_helpers import get_new_pallete, vis_one_object, adjust_colors_to_pastel
 from tool.vis_utils import Vis_color, Vis_pointcloud
@@ -64,10 +64,10 @@ class Scene_rep:
         # *** for segmentation
         self.g_mask_num = 0  # number of global(original) masks
         self.c_mask_num = 0  # number of merged masks
-        self.global_f_mask_ids = []  # 该list的index是每个原始2D mask的global_mask_id (即唯一的一维ID), value是该原始2D mask的f_mask_id, 即(frame_id, mask_id); 该list不会随着mask合并而删除其中的元素(add-only)
-        self.global2merged_mask_id = []  # 该list的index是每个原始2D mask的global_mask_id (即唯一的一维ID), value是该original 2D mask当前对应的merged mask的merged_mask_Id(数量只增不减)
-        self.merged_mask_size = []  # 每个merged_mask_id所对应的merged mask的3D voxel数
-        self.mask_voxels_coords = self.maskGraph.mask_voxels_coords  # a dict, key是merged mask的merged_mask_id(1D); value是该merged mask对应voxel的voxel_ids, Tensor(m_pts_num, ), dtype=int64, device=cuda;
+        self.global_f_mask_ids = []  # index: each original 2D_mask's global_mask_id (1D); value: this original 2D_mask's f_mask_id, (frame_id, mask_id); (append-only)
+        self.global2merged_mask_id = []  # index: each original 2D_mask's global_mask_id (1D), value: this original 2D_mask's corresponding merged_mask currently; (append-only)
+        self.merged_mask_size = []  # each merged_mask's current size (number of voxel)
+        self.mask_voxels_coords = self.maskGraph.mask_voxels_coords  # a dict, key is merged mask's merged_mask_id(1D); value merged mask's corresponding voxel_ids, Tensor(m_pts_num, ), dtype=int64;
         self.mask_features = torch.zeros((self.t_mask_num, self.cfg["mask"]["feature_dim"]), dtype=torch.float32, device=self.device)  # each merged_mask's semantic feature, Tensor(512, )
         self.merged_mask_weight = torch.zeros((self.t_mask_num, ), dtype=torch.float32, device=self.device)
         self.mask_geo_features = torch.zeros((self.t_mask_num, self.cfg["pc_extractor"]["feature_dim"]), dtype=torch.float32, device=self.device)  # each merged_mask's geometric feature, Tensor(16, )
@@ -104,14 +104,14 @@ class Scene_rep:
         self.merge_frame_interval = self.cfg["seg"]["seg_add_interval"] * self.cfg["seg"]["merge_kf_interval"]  # frame interval num for updating masks
         self.merge_overlap_thresh = self.cfg["seg"]["merge_overlap_thresh"]  # default: 0.4
         self.with_feature = self.cfg["seg"]["with_feature"]
-        self.sim_merge_thresh = self.cfg["seg"]["sim_merge_thresh"]  # default: 2.5(wo.Trans), 0.8(w.Trans)
-        self.merge_contain_iter_num = self.cfg["seg"]["merge_contain_iter_num"]  # default: 10
+        self.sim_merge_thresh = self.cfg["seg"]["sim_merge_thresh"]
+        self.merge_contain_iter_num = self.cfg["seg"]["merge_contain_iter_num"]
         self.merge_contain_ratio = self.cfg["seg"]["merge_contain_ratio"]
         self.merge_contain_ratio_feat_list = self.cfg["seg"]["merge_contain_ratio_feat_list"]
         self.contain_feature_sim_thresh_list = self.cfg["seg"]["contain_feature_sim_thresh_list"]
         self.containing_ratio = self.cfg["seg"]["containing_ratio"]  # default: 0.8
         self.contained_ratio = self.cfg["seg"]["contained_ratio"]  # default: 0.1
-        self.merge_supporter_num = self.cfg["seg"]["merge_supporter_num"]  # 两个mask的supporter数超过该值就在邻接矩阵中给它们建立一条边, default: 0.1
+        self.merge_supporter_num = self.cfg["seg"]["merge_supporter_num"]  # supporter_num threshold, default: 5
 
 
     #################################################### properties ####################################################
@@ -228,8 +228,8 @@ class Scene_rep:
         voxel_coords_o3c, voxel_indices_o3c = self.voxel_block_grids.voxel_coordinates_and_flattened_indices(cur_block_indices_o3c)  # voxel coordinates and 1D indices contained by given blocks
 
         frustum_block_coords = torch.utils.dlpack.from_dlpack(frustum_block_coords_o3c.to_dlpack())
-        cur_block_indices = torch.utils.dlpack.from_dlpack(cur_block_indices_o3c.to_dlpack())  # *** 每个所选的VoxelBlock在hashmap中的的key, Tensor(s_block_num, ), dtype=int32
-        voxel_coords = torch.utils.dlpack.from_dlpack(voxel_coords_o3c.to_dlpack())  # *** 所选的blocks所包含的各voxel的voxel coordinates(实际是在世界坐标系中的世界坐标), Tensor(c_voxel_num, 3), dtype=float32
+        cur_block_indices = torch.utils.dlpack.from_dlpack(cur_block_indices_o3c.to_dlpack())  # *** key in hashmap of each selected VoxelBlock, Tensor(s_block_num, ), dtype=int32
+        voxel_coords = torch.utils.dlpack.from_dlpack(voxel_coords_o3c.to_dlpack())  # *** voxel coordinates in selected blocks(in World CS), Tensor(c_voxel_num, 3), dtype=float32
         voxel_indices = torch.utils.dlpack.from_dlpack(voxel_indices_o3c.to_dlpack())  # 1D indices of each voxel coordinate (in World CS)
 
         self.set_active_frustum(frame_id, voxel_coords, voxel_indices)  # update active frame frustum
@@ -275,7 +275,7 @@ class Scene_rep:
             mask_voxel_coords = mask_dict[mask_id]
             mask_voxel_indices = mask_indices_dict[mask_id]
 
-            self.maskGraph.insert_instance(frame_id, mask_id, merged_mask_id, mask_voxel_coords, mask_voxel_indices, mask_sem_feature)  #***
+            self.maskGraph.insert_instance(frame_id, mask_id, merged_mask_id, mask_voxel_coords, mask_voxel_indices, mask_sem_feature)
             self.maskGraph.f_mask_voxels_clouds[f_mask_id] = mask_voxel_coords
             self.maskGraph.merged_mask_in_frame_mat[merged_mask_id] = mask_in_frame_list[i]
             self.mask_voxels_coords[merged_mask_id] = mask_voxel_coords
@@ -290,14 +290,14 @@ class Scene_rep:
                 # 3.2.1: for this mask, compute other overlapping masks and their overlap voxel num
                 overlap_mask_ids, contain_ratio_q2o, contain_ratio_o2q = self.maskGraph.query_mask_under_visible_part(mask_in_frame_list[i], mask_voxel_coords, self.global2merged_mask_id)
 
-                # 3.2.2: 对于这个新mask在矩阵中对应的那一行+那一列中的元素，填充与之有overlap的mask的对应位置的元素(containing_ratio)
+                # 3.2.2: for the row and column of this new mask in Containing_matrix, fill the values corresponding to overlapping masks
                 if overlap_mask_ids.shape[0] > 0:
-                    # 3.2.2.1: fill its corresponding row ( 该mask对existing masks的containing ratio, region (3) )
+                    # 3.2.2.1: fill its corresponding row (containing ratio of this mask to existing masks)
                     mask_row_this = torch.zeros((self.c_mask_num, )).to(self.contain_matrix)
                     mask_row_this[overlap_mask_ids] = contain_ratio_q2o
                     self.contain_matrix[merged_mask_id, :self.c_mask_num] = mask_row_this
 
-                    # 3.2.2.2: fill its corresponding col ( existing masks对该mask的containing ratio, region (2) )
+                    # 3.2.2.2: fill its corresponding col (containing ratio of existing masks to this mask)
                     mask_col_this = torch.zeros((self.c_mask_num,)).to(self.contain_matrix)
                     mask_col_this[overlap_mask_ids] = contain_ratio_o2q
                     self.contain_matrix[:self.c_mask_num, merged_mask_id] = mask_col_this
@@ -322,7 +322,7 @@ class Scene_rep:
 
             # 4.1: update its global_mask_id and merged_mask_id
             self.global_f_mask_ids.append(f_mask_id)
-            self.global2merged_mask_id.append(merged_mask_id)  # 对于新一帧中新的2D masks, 它当前的merged mask就是当前最大的merged_mask_ID + 1
+            self.global2merged_mask_id.append(merged_mask_id)  # for new 2D masks in this frame, its merged_mask_ID is the current largest merged_mask_ID + 1
             self.merged_mask_size.append(mask_voxels.shape[0])
             self.merged_mask_weight[merged_mask_id] = 1.
             self.merged_mask_last_frame[merged_mask_id] = frame_id
@@ -363,7 +363,7 @@ class Scene_rep:
     # END insert_frame()
 
 
-    # @brief: re-compute geometric feature for each given mask;
+    # @brief: re-compute geometric feature for each given mask using latest reconstructed pointcloud;
     def update_mask_geo_features(self, frame_id, merged_mask_ids=None):
         if self.pc_xyz is None or self.pc_feature is None:
             return False
@@ -415,7 +415,7 @@ class Scene_rep:
         # Step 1: Mask Merging Strategy 1: Overall Similarity
         # 1.1: compute similarity matrix based on: IoU + semantic feature similarity + geometric feature similarity
         final_sim_mat, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat = self.metrics.compute_final_sim_mat(c_mat, sem_feature_mat, geo_feature_mat, use_IoU=True)
-        sim_merge_mat = ut_mask & (final_sim_mat > self.sim_merge_thresh)  # ***(default) 基于固定平面的分类
+        sim_merge_mat = ut_mask & (final_sim_mat > self.sim_merge_thresh)  # using fixed classifying plane (TODO: to be improved )
 
         iou_merge_mat = ut_mask & (c_mat > self.merge_overlap_thresh) & (c_mat.T > self.merge_overlap_thresh)  # Double check: only mask pairs with mutual OR > threshold can be merged
         sim_merge_mat = sim_merge_mat & iou_merge_mat
@@ -624,9 +624,6 @@ class Scene_rep:
             cluster_voxel_list = [self.mask_voxels_coords[mask_id] for mask_id in mask_cluster]
             cluster_voxel_coords = torch.concat(cluster_voxel_list, dim=0)
             cluster_voxel_coords = torch.unique(cluster_voxel_coords, dim=0)  # Voxel coordinates of this merged mask, Tensor(new_mask_size, 3)
-
-            # # TEST: denoise the merged mask
-            # cluster_voxel_coords = self.voxel_grids.denoise_mask_pc(cluster_voxel_coords, keep_max=False, rm_ratio=0.025)
 
             # 2.3.2: compute merged semantic feature of this merged mask
             cluster_features = self.get_mask_features[mask_cluster]

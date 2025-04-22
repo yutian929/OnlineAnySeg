@@ -26,8 +26,8 @@ class MaskGraph:
         self.mask_visible_min_overlap = self.cfg["mask"]["mask_visible_min_overlap"]  # default: 500
         self.contain_min_threshold = self.cfg["mask"]["contain_min_threshold"]  # default: 0.3
         self.max_voxel_num = self.voxel_hash_table.max_voxel_num
-        self.f_mask_voxels_clouds = {}  # a dict, key is mask's f_mask_id, (frame_id, mask_id); value is mask's corresponding voxel coordinates(in World CS), Tensor(m_pts_num, ), dtype=int64, device=cuda;
-        self.mask_voxels_coords = {}  # a dict, key is merged mask's merged_mask_id(1D); value merged mask's corresponding voxel的voxel_ids, Tensor(m_pts_num, ), dtype=int64, device=cuda;
+        self.f_mask_voxels_clouds = {}  # a dict, key is mask's f_mask_id, (frame_id, mask_id); value is mask's corresponding voxel coordinates(in World CS), Tensor(m_pts_num, ), dtype=int64;
+        self.mask_voxels_coords = {}  # a dict, key is merged mask's merged_mask_id(1D); value merged mask's corresponding voxel_ids, Tensor(m_pts_num, ), dtype=int64;
 
         self.contain_matrix = torch.zeros((self.t_mask_num, self.t_mask_num), dtype=torch.float32, device=self.device)
 
