@@ -17,6 +17,7 @@ third_party/*
 readme.txt
 readme_env.txt
 
+Scene_rep_backup.py
 Time_counter.py
 Bi_plane_classifier.py
 # eval/scannet200/validation

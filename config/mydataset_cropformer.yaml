@@ -21,9 +21,6 @@ scene:
   scene_radius_depth_ratio: 3
   dense_down_ratio: 4  # default: 4
   dense_down_ratio_sparse: 4
-  dens:
-    sil_threshold: 1.25  # 值越大表示越宽松, default: 0.75
-    depth_error_scale: 50  #值越小表示越宽松, default: 50
 
 pc_extractor:
   geo_extractor_path: "third_party/FCGF/model/ResUNetBN2C-16feat-3conv.pth"
@@ -64,7 +61,7 @@ seg:
   merge_contain_iter_num: 10
   merge_contain_ratio: 0.8  # default: 0.75
   merge_contain_ratio_feat_list: [0.8, 0.75, 0.7]
-  contain_feature_sim_thresh_list: [2.1, 2.2, 2.3]  # for wo.Transformer, default: 2.0, 2.1, 2.2
+  contain_feature_sim_thresh_list: [2.1, 2.2, 2.3]
   containing_ratio: 0.8  # default: 0.8
   contained_ratio: 0.3
   merge_supporter_num: 5
@@ -90,7 +87,7 @@ mask:
   denoise_rm_ratio: 0.2
   voxel_on_recon_pc: True
   feature_dim: 1024  # 1024 for CropFormer+CLIP
-  few_pixel_threshold: 400  # 一个detected 2D mask的最小size
+  few_pixel_threshold: 400  # min size of a detected 2D mask
   few_voxel_threshold: 20
   coverage_threshold: 0.3
   query_radius: 0.03

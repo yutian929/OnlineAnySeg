@@ -6,19 +6,16 @@ import torch
 import torch.utils.dlpack
 import open3d as o3d
 import open3d.core as o3c
-from sklearn.cluster import DBSCAN
-from tqdm import tqdm
-import networkx as nx
 
 from voxelized_points import VoxelBlockGrid
 from PC_extractor import PointFeatureExtractor
 from MaskGraph import MaskGraph
 from Metrics import Metrics
 from tool.geometric_helpers import compute_complementary, keep_min_rows
-from tool.helper_functions import create_lower_triangular_matrix, set_diagonal_to_zero, set_row_and_column_zero, get_pointcloud, do_clustering, \
+from tool.helper_functions import create_lower_triangular_matrix, set_diagonal_to_zero, set_row_and_column_zero, do_clustering, \
         extract_rows_and_cols, mask_matrix_rows_and_cols, retain_max_per_column, assign_elements_2d
 from tool.post_process import filter_instances, export_instance_mask
-from tool.visualization_helpers import get_new_pallete, vis_one_object, adjust_colors_to_pastel
+from tool.visualization_helpers import vis_one_object, adjust_colors_to_pastel
 from tool.vis_utils import Vis_color, Vis_pointcloud
 
 
@@ -78,10 +75,6 @@ class Scene_rep:
         self.pc_frame_id = -1
         self.points = None
         self.colors = None
-
-        # for mask merging tracking
-        self.mapping_frame_Id = self.metrics.mapping_frame_Id
-        self.raw_ID2new_ID = self.metrics.raw_ID2new_ID  # TODO: for mask pairs tracking
 
         self.pred_inst_mask_frame_id = -1
         self.pred_inst_masks = None
@@ -434,12 +427,7 @@ class Scene_rep:
         supporter_num_mat = supporter_num_mat * ut_mask.float()  # Tensor(c_mask_num, c_mask_num), dtype=float
         supporter_num_merge_mat = (supporter_num_mat >= self.merge_supporter_num)
 
-        # Step 3: 找出最终需要被合并的所有masks, 并更新c_mat
-        # 3.1: update vars for mask merging process in current frame
-        self.mapping_frame_Id = frame_id
-        self.raw_ID2new_ID = torch.arange(self.c_mask_num, dtype=torch.int64)  # mapping the mask_IDs before merging to mask_IDs after merging
-
-        # 3.2: compute the final Merging Matrix based on all proposed strategies
+        # Step 3: find all masks that need to be merged, and then update c_mat
         merge_mat = torch.logical_or(sim_merge_mat, supporter_num_merge_mat)  # Tensor(c_mask_num, c_mask_num), dtype=bool
         merge_mat = set_row_and_column_zero(merge_mat, self.get_mask_wo_geo_feature, self.get_mask_wo_geo_feature)  # if a mask has no geometric feature, ignore it
         valid_merged_mask_ids, _ = self.merge_masks(frame_id, merge_mat, c_mat, count_merge=True)  # merged_mask_Ids whose weight exceeds threshold, Tensor(valid_m_mask_num, )
@@ -536,7 +524,6 @@ class Scene_rep:
     # @brief: merge some existing masks, including merge corresponding rows and cols in containig matrix, and reassign merge_mask_Id for all merged masks;
     # @param merge_mat: bool matrix indicating which masks needed to be merged, Tensor(c_mask_num, c_mask_num), dtype=bool;
     # @param c_mat: Tensor(c_mask_num, c_mask_num);
-    # @param raw_ID2new_ID:
     #-@return valid_merged_mask_ids:
     #-@return merge_flag: whether at least 2 masks are merged in this iteration, bool.
     def merge_masks(self, frame_id, merge_mat, c_mat, count_merge=False, full_geo_merge=True):
@@ -571,7 +558,6 @@ class Scene_rep:
         self.maskGraph.keep_and_merge_masks(frame_id, c_mask_num_before, rows_to_keep, rows_to_merge)
 
         # 2.1: preparation, create new tensors
-        raw_ID2new_ID_new = -1 * torch.ones_like(self.raw_ID2new_ID)  # TODO: for mask_ID tracking in merging
         global2merged_mask_id = torch.tensor(self.global2merged_mask_id, dtype=torch.long)  # Tensor(collected_global_mask_num, )
         global2merged_mask_id_new = -1 * torch.ones_like(global2merged_mask_id)
         c_mat_new = torch.eye(merged_mask_num_new).to(c_mat)  # Tensor(m_mask_num, m_mask_num)
@@ -591,7 +577,6 @@ class Scene_rep:
         for mask_id_kept in rows_to_keep:
             corr_global_mask_ids = torch.where(global2merged_mask_id == mask_id_kept)[0]
             global2merged_mask_id_new[corr_global_mask_ids] = new_mask_counter
-            raw_ID2new_ID_new[self.raw_ID2new_ID == mask_id_kept] = new_mask_counter  # TODO: tracking mask_ID re-assignment for kept masks
 
             mask_voxels_coords_new[new_mask_counter] = self.mask_voxels_coords[mask_id_kept]
             mask_features_new[new_mask_counter] = self.get_mask_features[mask_id_kept]
@@ -671,9 +656,6 @@ class Scene_rep:
             global2merged_mask_id_new[corr_global_mask_ids] = merged_mask_id_i  # update global2merged_mask_id
             merged_mask_size_new.append(mask_voxel_coords_i.shape[0])
 
-            new_ID_indices = torch.isin(self.raw_ID2new_ID, mask_cluster_tensor)
-            raw_ID2new_ID_new[new_ID_indices] = merged_mask_id_i  # TODO: tracking mask_ID re-assignment for newly merged masks
-
             # 2.4.2: re-compute geometric feature for this newly merged mask, and update
             merged_mask_geo_feature = merged_mask_geo_feature_list[i]
             merged_mask_geo_feature_mask = 1.
@@ -688,7 +670,6 @@ class Scene_rep:
 
         # 2.5: set new tensors as members
         merged_mask_num_new_valid = kept_mask_num + merged_mask_num_valid
-        self.raw_ID2new_ID = raw_ID2new_ID_new  # TODO: tracking mask_ID re-assignment for newly merged masks
         self.global2merged_mask_id = global2merged_mask_id_new.tolist()
         self.contain_matrix[:self.c_mask_num, :self.c_mask_num] = torch.eye(self.c_mask_num).to(c_mat_new)
         self.contain_matrix[:merged_mask_num_new, :merged_mask_num_new] = c_mat_new
@@ -728,7 +709,6 @@ class Scene_rep:
         # 3.1: preparation, create new tensors
         c_mat = self.get_containing_mat
         c_mask_num_before = self.c_mask_num
-        raw_ID2new_ID_new = -1 * torch.ones_like(self.raw_ID2new_ID)  # TODO: for mask_ID tracking in merging
         global2merged_mask_id = torch.tensor(self.global2merged_mask_id, dtype=torch.long)  # Tensor(collected_global_mask_num, )
         global2merged_mask_id_new = -1 * torch.ones_like(global2merged_mask_id)
         mask_voxels_coords_new = {}
@@ -751,7 +731,6 @@ class Scene_rep:
         for i, mask_id_kept in enumerate(kept_mask_ids):
             corr_global_mask_ids = torch.where(global2merged_mask_id == mask_id_kept)[0]
             global2merged_mask_id_new[corr_global_mask_ids] = new_mask_counter
-            raw_ID2new_ID_new[self.raw_ID2new_ID == mask_id_kept] = new_mask_counter  # TODO: tracking mask_ID re-assignment for kept masks
 
             mask_voxels_coords_new[new_mask_counter] = self.mask_voxels_coords[mask_id_kept]
             mask_features_new[new_mask_counter] = self.get_mask_features[mask_id_kept]
@@ -763,7 +742,6 @@ class Scene_rep:
             new_mask_counter += 1
 
         # 3.4: set new tensors as members
-        self.raw_ID2new_ID = raw_ID2new_ID_new  # TODO: tracking mask_ID re-assignment for newly merged masks
         self.global2merged_mask_id = global2merged_mask_id_new.tolist()
         self.contain_matrix[:self.c_mask_num, :self.c_mask_num] = torch.eye(self.c_mask_num).to(c_mat_new)
         self.contain_matrix[:kept_mask_num, :kept_mask_num] = c_mat_new
@@ -805,9 +783,7 @@ class Scene_rep:
 
             self.get_seg_mesh(mask_coords_list, recon_mesh, seg_output_path, instance_mask_save_path, inst_rgb_list)
         else:  # for pointcloud
-            # self.get_seg_pc(mask_coords_list, self.points, seg_output_path, inst_rgb_list)
             self.get_seg_pc_w_overlap(frame_id, mask_coords_list, self.points, seg_output_path, inst_rgb_list)
-
 
 
     ############################################## Helper functions for visualization ##############################################
@@ -840,14 +816,6 @@ class Scene_rep:
         colors = pcd.point.colors.cpu().numpy()
         return points, colors
 
-    def get_mesh_vert_colors(self, legacy=True, save_path=None):
-        mesh = self.voxel_block_grids.extract_triangle_mesh()
-        final_mesh = mesh.to_legacy() if legacy else mesh
-        vertices = np.asarray(final_mesh.vertices)
-        vert_colors = np.asarray(final_mesh.vertex_colors)
-        if save_path is not None:
-            o3d.io.write_triangle_mesh(save_path, final_mesh)
-        return vertices, vert_colors
 
     # @brief: for given scene pointcloud and each instance, compute each instance's point mask over all scene points;
     # @param instance_voxels_coords: list Tensor(n_i, 3);
@@ -896,43 +864,9 @@ class Scene_rep:
                 instance_colors[point_ids] = label_color.to(self.device)
             else:
                 instance_colors[point_ids] = rgb_list[idx].to(self.device)
-        # END for
 
         instance_colors = instance_colors.cpu().numpy().astype("float64") / 255.
         instance_colors = adjust_colors_to_pastel(instance_colors)  # adjust color brightness
-        input_mesh.vertex_colors = o3d.utility.Vector3dVector(instance_colors)
-
-        if save_path is not None:
-            o3d.io.write_triangle_mesh(save_path, input_mesh)
-        if instance_mask_save_path is not None:
-            torch.save(scene_point_mask_list, instance_mask_save_path)
-        return input_mesh
-
-
-    def get_seg_mesh2(self, instance_mask_list, input_mesh, save_path=None, instance_mask_save_path=None):
-        scene_points = np.asarray(input_mesh.vertices).astype("float32")
-        scene_points = torch.from_numpy(scene_points).to(self.device)
-
-        # Step 2: for each detected valid mask, compute its corresponding points in scene points
-        scene_colors = torch.zeros_like(scene_points)
-        scene_colors = torch.pow(scene_colors, 1 / 2.2)
-        scene_colors = scene_colors * 255
-        instance_colors = torch.zeros_like(scene_colors)
-
-        num_instances = len(instance_mask_list)
-        scene_point_mask_list = []
-        for idx in range(num_instances):
-            scene_point_mask = instance_mask_list[idx]
-            scene_point_mask = torch.from_numpy(scene_point_mask).to(self.device)
-            corr_point_ids = torch.where(scene_point_mask)[0]
-            scene_point_mask_list.append(scene_point_mask)
-
-            point_ids, points, colors, label_color, center = vis_one_object(corr_point_ids, scene_points)
-            instance_colors[point_ids] = label_color.to(self.device)
-        # END for
-
-        scene_points = scene_points.cpu().numpy()
-        instance_colors = instance_colors.cpu().numpy().astype("float64") / 255.
         input_mesh.vertex_colors = o3d.utility.Vector3dVector(instance_colors)
 
         if save_path is not None:
@@ -1002,106 +936,6 @@ class Scene_rep:
         return pc
 
 
-    # @brief: for each point in currently reconstructed pc, paint it with different color according to its instance ID;
-    # @param mask_voxels_coords: voxel list of all valid instances, list of Tensor(v_i, 3);
-    # @param scene_points: latest reconstructed scene points, Tensor(n, 3);
-    #-@return: segmentation pointcloud(colored by instance_ID), PointCloud obj;
-    def get_seg_pc(self, mask_voxels_coords, scene_points=None, save_path=None, rgb_list=None):
-        if scene_points is None:
-            scene_points, _ = self.get_pc()
-        if isinstance(scene_points, np.ndarray):
-            scene_points = torch.from_numpy(scene_points).to(self.device)
-
-        # Step 1: for each extracted scene point, compute its corresponding voxel
-        voxelized_scene_points = self.voxel_grids.world_coords2voxel_coords(scene_points).to(self.device)
-        point_voxel_indices = self.voxel_grids.voxel_coords2voxel_indices(voxelized_scene_points)
-
-
-        # Step 2: for each detected valid mask, compute its corresponding points in scene points
-        scene_colors = torch.zeros_like(scene_points)
-        scene_colors = torch.pow(scene_colors, 1 / 2.2)
-        scene_colors = scene_colors * 255
-        instance_colors = 200. * torch.ones_like(scene_colors)  # set background to gray
-
-        num_instances = len(mask_voxels_coords)
-        scene_pts_mask_list = []
-        for idx in range(num_instances):
-            mask_voxel_coords = mask_voxels_coords[idx]  # Voxel coordinates of this mask, Tensor(m_i, 3)
-            mask_voxel_indices = self.voxel_grids.voxel_coords2voxel_indices(mask_voxel_coords)  # corresponding voxels of this 3D mask
-
-            if self.maskGraph.consider_bound_pts:
-                mask_voxel_indices = compute_complementary(mask_voxel_indices, self.maskGraph.boundary_voxel_indices)
-
-            scene_point_mask = torch.isin(point_voxel_indices, mask_voxel_indices)
-            scene_pts_mask_list.append(scene_point_mask)
-            corr_point_ids = torch.where(scene_point_mask)[0]
-
-            point_ids, points, colors, label_color, center = vis_one_object(corr_point_ids, scene_points)
-            if rgb_list is None:
-                instance_colors[point_ids] = label_color.to(self.device)
-            else:
-                instance_colors[point_ids] = rgb_list[idx].to(self.device)
-        # END for
-
-        scene_points = scene_points.cpu().numpy()
-        instance_colors = instance_colors.cpu().numpy() / 255.
-        instance_colors = adjust_colors_to_pastel(instance_colors)  # adjust color brightness
-
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(scene_points)
-        pc.colors = o3d.utility.Vector3dVector(instance_colors)
-
-        if save_path is not None:
-            o3d.io.write_point_cloud(save_path, pc)
-        return pc
-
-
-    # @brief: for each vertex in currently reconstructed pc,
-    # @param instance_mask_list: each instance's point mask over all scene points, list of Tensor(scene_pts_num, ), dtype=bool;
-    def get_seg_pc2(self, instance_mask_list, scene_points, save_path=None):
-        if isinstance(scene_points, np.ndarray):
-            scene_points = torch.from_numpy(scene_points).to(self.device)
-
-        # Step 2: for each detected valid mask, compute its corresponding points in scene points
-        scene_colors = torch.zeros_like(scene_points)
-        scene_colors = torch.pow(scene_colors, 1 / 2.2)
-        scene_colors = scene_colors * 255
-        instance_colors = torch.zeros_like(scene_colors)
-
-        num_instances = len(instance_mask_list)
-        for idx in range(num_instances):
-            instance_mask = instance_mask_list[idx]
-            if isinstance(instance_mask, np.ndarray):
-                instance_mask = torch.from_numpy(instance_mask_list[idx]).to(self.device)
-            corr_point_ids = torch.where(instance_mask)[0]
-
-            point_ids, points, colors, label_color, center = vis_one_object(corr_point_ids, scene_points)
-            instance_colors[point_ids] = label_color.to(self.device)
-        # END for
-
-        scene_points = scene_points.cpu().numpy()
-        instance_colors = instance_colors.cpu().numpy()
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(scene_points)
-        pc.colors = o3d.utility.Vector3dVector(instance_colors / 255.)
-
-        if save_path is not None:
-            o3d.io.write_point_cloud(save_path, pc)
-        return pc
-
-    def save_pc_uniform_color(self, pts, save_path=None, pc_color=[1., 0., 0.]):
-        if isinstance(pts, torch.Tensor):
-            pts = pts.cpu().numpy()
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(pts)
-        pc.estimate_normals()
-        pc.paint_uniform_color(np.array(pc_color).astype("float64"))
-
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            o3d.io.write_point_cloud(save_path, pc)
-        return pc
-
     # @brief: save reconstructed pointcloud(with raw colors)
     def save_pc(self, points, colors, save_path=None):
         if isinstance(points, torch.Tensor):
@@ -1116,24 +950,6 @@ class Scene_rep:
             o3d.io.write_point_cloud(save_path, pcd)
         return pcd
 
-    def get_pc_save(self, save_path=None):
-        points, colors = self.get_pc()
-        self.save_pc(points, colors, save_path=save_path)
-
-    def save_pc_from_rgbd(self, color, depth, intrinsics, pose_c2w, dist_far=5., save_path=None):
-        depth_mask = (depth > 0).flatten() & (depth < dist_far).flatten()
-        point_cld, _ = get_pointcloud(color, depth, intrinsics, pose_c2w, mask=depth_mask)
-        pts_xyz = point_cld[:, :3]
-        pts_rgb = point_cld[:, 3:]
-        pcd = self.save_pc(pts_xyz, pts_rgb, save_path=save_path)
-        return pcd
-
-    def get_mesh(self, legacy=True, save_path=None):
-        mesh = self.voxel_block_grids.extract_triangle_mesh()
-        final_mesh = mesh.to_legacy() if legacy else mesh
-        if save_path is not None:
-            o3d.io.write_triangle_mesh(save_path, final_mesh)
-        return final_mesh
 
     # @brief: get current reconstructed mesh
     def get_mesh_vertices(self, legacy=True, save_path=None):
@@ -1148,79 +964,6 @@ class Scene_rep:
         vertices = np.asarray(final_mesh.vertices)
         return vertices, final_mesh
 
-    def save_mask_pc(self, output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-        for merged_mask_id, voxel_coord in self.mask_voxels_coords.items():
-            output_path = os.path.join(output_dir, f"{merged_mask_id}.ply")
-
-            points = voxel_coord.cpu().numpy().astype("float64")
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            o3d.io.write_point_cloud(output_path, pcd)
-
-    def save_mask_pc2(self, output_dir, mask_dict):
-        os.makedirs(output_dir, exist_ok=True)
-        for merged_mask_id, voxel_coord in mask_dict.items():
-            output_path = os.path.join(output_dir, f"{merged_mask_id}.ply")
-
-            points = voxel_coord.cpu().numpy().astype("float64")
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            o3d.io.write_point_cloud(output_path, pcd)
-
-    def save_mask_pc2_2(self, output_dir, mask_dict, valid_mask_ids=None):
-        if valid_mask_ids is None:
-            mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])  # weight超过该阈值的merged mask才展示
-            valid_mask_ids = torch.where(self.merged_mask_weight[:self.c_mask_num] >= mask_weight_threshold)[0]
-
-        os.makedirs(output_dir, exist_ok=True)
-        for merged_mask_id, voxel_coord in mask_dict.items():
-            if merged_mask_id not in valid_mask_ids:
-                continue
-
-            output_path = os.path.join(output_dir, f"{merged_mask_id}.ply")
-
-            points = voxel_coord.cpu().numpy().astype("float64")
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            o3d.io.write_point_cloud(output_path, pcd)
-
-    def save_mask_pc3(self, output_dir, mask_voxel_coord_list, mask_ids=None):
-        os.makedirs(output_dir, exist_ok=True)
-        for i, voxel_coord in enumerate(mask_voxel_coord_list):
-            if mask_ids is not None:
-                mask_id = mask_ids[i]
-            else:
-                mask_id = i
-            output_path = os.path.join(output_dir, f"{mask_id}.ply")
-
-            points = voxel_coord.cpu().numpy().astype("float64")
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            o3d.io.write_point_cloud(output_path, pcd)
-
-    # @brief: 把这一帧分割图中的每个mask单独保存成一张mask图
-    def save_mask_images(self, mask_image, output_dir, frame_id=None):
-        os.makedirs(output_dir, exist_ok=True)
-        seg_image_reshape = mask_image.reshape(-1)  # Tensor(H * W)
-        ids = torch.unique(seg_image_reshape)  # mask_ids of all detected masks, Tensor(m, ), dtype=uint8
-        ids.sort()
-        mask_image = mask_image.long()
-
-        for mask_id in ids:
-            mask_id = mask_id.item()
-            if mask_id == 0:
-                continue
-
-            this_mask_image = torch.where(mask_image == mask_id, torch.ones_like(mask_image), torch.zeros_like(mask_image)).float()
-            if frame_id is None:
-                this_mask_path = os.path.join(output_dir, "%d.png" % mask_id)
-            else:
-                this_mask_path = os.path.join(output_dir, "%d_%d.png" % (frame_id, mask_id))
-            this_mask_image = this_mask_image[..., None].tile((1, 1, 3))
-            this_mask_image = (this_mask_image.cpu().numpy() * 255).astype("uint8")
-            cv2.imwrite(this_mask_path, this_mask_image)
-
 
     # @brief: Get all current valid instances;
     #-@return instance_mask_list: each instance's point mask in given pc, list of Tensor(pc_num, ), dtype=bool;
@@ -1230,7 +973,7 @@ class Scene_rep:
     #-@return mask_scene_pts_coords_list: each instance's corresponding scene points, list of Tensor(mask_voxel_size, 3), dtype=float32;
     def get_valid_instances(self, scene_points=None, max_threshold=5, min_size=25):
         # Step 1: extract Voxel coordinates for each valid instance
-        mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])  # weight超过该阈值的merged mask才展示
+        mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])
         valid_merged_mask_ids = torch.where(self.merged_mask_weight[:self.c_mask_num] >= mask_weight_threshold)[0]
         mask_voxel_coords_list = [self.mask_voxels_coords[i] for i in valid_merged_mask_ids.tolist()]
         valid_instances = [instance for inst_id, instance in self.maskGraph.instance_dict.items() if inst_id in valid_merged_mask_ids.tolist()]
@@ -1277,7 +1020,6 @@ class Scene_rep:
             return
         os.makedirs(ckpt_save_dir, exist_ok=True)
 
-        ################################ Part 1: ckpt for recon pc ################################
         # Step 1: get current reconstructed pointcloud
         if frame_id != self.pc_frame_id:
             self.points, self.colors = self.get_pc()

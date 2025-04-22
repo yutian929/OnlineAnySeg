@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 from tool.geometric_helpers import nonlinear_mapping
-from tool.helper_functions import retain_max_per_row, create_lower_triangular_matrix
+from tool.helper_functions import retain_max_per_row
 
 
 class Metrics:

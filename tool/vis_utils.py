@@ -1,10 +1,8 @@
 import numpy as np
 import torch
 import open3d as o3d
-from copy import deepcopy
 
-from tool.visualization_helpers import get_new_pallete, vis_one_object
-from eval.constants import SCANNET_LABELS
+from tool.visualization_helpers import get_new_pallete,
 
 
 class Vis_color:
@@ -56,7 +54,6 @@ class Vis_pointcloud:
         self.cam = None
         ctr = self.vis.get_view_control()
         ctr.set_constant_z_far(1000)
-    # END __init__()
 
     def get_text_embeddings(self):
         text_embed_path = self.args.vocab_feature_file
@@ -107,13 +104,10 @@ class Vis_pointcloud:
         self.scene_points_color = scene_colors.astype("float64")
 
 
-    # @brief: 每次展示从第0帧到当前帧为止的分割后点云(得频繁调用才能保证视角可自由移动);
-    # @param points: 当前要展示的点云, ndarray(n, 3), dtype=float64;
-    # @param points_color: 当前要展示的点云中各点的RGB(0~255), ndarray(n, 3), dtype=float64;
+    # @brief: show seg pc from 0 to T;
+    # @param points: points to show, ndarray(n, 3), dtype=float64;
+    # @param points_color: RGB(0~255) of points to show, ndarray(n, 3), dtype=float64;
     def update(self):
-        # 因为上次调用该函数(渲染)后用户可能在前端窗口中通过鼠标改变了Visualizer obj的视角，为了使得此次更新了scene geometry后窗口的视角和上次更新后保持一致，这里要先获取Visualizer obj现在的视角参数
-        # self.cam = self.vis.get_view_control().convert_to_pinhole_camera_parameters()  # 调整视角step1: 获取当前Visualizer obj的视角(open3d.camera.PinholeCameraParameters对象)
-
         if not self.use_vis:
             return
 
@@ -124,12 +118,10 @@ class Vis_pointcloud:
             return
 
         if not self.add_geo_flag:
-            self.vis.add_geometry(self.pcd)  # 把当前帧中的这些点添加到已有的scene geometry中(原来的依旧保留)
+            self.vis.add_geometry(self.pcd)
             self.add_geo_flag = True
         else:
-            self.vis.update_geometry(self.pcd)  # 更新已有的scene geometry中(原来的被替换)
-
-        # self.vis.get_view_control().convert_from_pinhole_camera_parameters(self.cam)  # 调整视角step2: 把Visualizer obj的ViewControl obj成员设置成和上次的视角一样
+            self.vis.update_geometry(self.pcd)
 
         self.vis.poll_events()
         self.vis.update_renderer()

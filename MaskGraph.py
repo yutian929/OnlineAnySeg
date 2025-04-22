@@ -4,8 +4,8 @@ import math
 
 from Instance import Instance
 from tool.geometric_helpers import compute_intersection, add_wo_redundant, compute_complementary_w_mask
-from tool.helper_functions import merge_sets_and_count, query_values_from_keys
-from tool.visualization_helpers import generate_distinct_colors, visualize_colors
+from tool.helper_functions import query_values_from_keys
+from tool.visualization_helpers import generate_distinct_colors
 
 
 class MaskGraph:

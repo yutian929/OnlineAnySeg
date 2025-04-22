@@ -35,7 +35,7 @@ if __name__ == '__main__':
     local_output_dir = str( os.path.join(args.output_dir, args.seq_name) )
     os.makedirs(local_output_dir, exist_ok=True)
 
-    ########################################### main flow ###########################################
+    ########################################### main process ###########################################
     for frame_id, (color_img, depth_img, pose_c2w, seg_image, mask_features, seg_flag) in tqdm(enumerate(dataloader)):
         if max_frame_num is not None and frame_id >= max_frame_num:
             break
@@ -81,7 +81,6 @@ if __name__ == '__main__':
             ckpt_save_dir = os.path.join(local_output_dir, "ckpt_%d" % frame_id)
             os.makedirs(ckpt_save_dir, exist_ok=True)
             scene_rep.save_ckpt(frame_id, ckpt_save_dir)
-    # END for
 
 
     # Step 3: save final segmentation results

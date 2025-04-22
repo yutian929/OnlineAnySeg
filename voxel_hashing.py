@@ -6,7 +6,7 @@ import open3d.core as o3c
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from tool.helper_functions import get_pointcloud, get_pointcloud_xyz, merge_sets_and_count
+from tool.helper_functions import merge_sets_and_count
 
 
 class VoxelHashTable:

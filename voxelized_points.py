@@ -8,8 +8,8 @@ import open3d.core as o3c
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from tool.geometric_helpers import get_depth_mask, query_neighbors_mt, denoise, denoise2, crop_scene_points, connected_components_with_sizes
-from tool.helper_functions import get_pointcloud, get_pointcloud_xyz, set_diagonal_to_zero
+from tool.geometric_helpers import get_depth_mask, query_neighbors_mt, denoise, denoise2, crop_scene_points
+from tool.helper_functions import get_pointcloud_xyz
 from voxel_hashing import VoxelHashTable
 
 
@@ -148,14 +148,6 @@ class VoxelBlockGrid:
         return voxel_indices
 
 
-    def get_mask_denoise_flag(self, seg_image, mask_id, min_component_size=1000):
-        mask_seg_image = torch.where(seg_image == mask_id, torch.ones_like(seg_image), torch.zeros_like(seg_image))
-        component_num, component_sizes = connected_components_with_sizes(mask_seg_image)
-
-        valid_components_indices = [i for i in range(component_num) if component_sizes[i] > min_component_size]
-        return len(valid_components_indices) > 1
-
-
     # @param mask_points: Tensor(n, 3);
     #-@return: Tensor(n', 3).
     def denoise_mask_pc(self, mask_points, voxel_down_sample=True, keep_max=True, rm_ratio=-1.):
@@ -169,7 +161,6 @@ class VoxelBlockGrid:
         else:
             denoise_rm_ratio = self.denoise_rm_ratio if rm_ratio < 0. else rm_ratio
             mask_pcd, remain_index = denoise2(mask_pcd, eps=self.query_radius, remove_percent=denoise_rm_ratio)  # only remove small clusters
-            # mask_pcd, remain_index = denoise2(mask_pcd, eps=2 * self.voxel_size, remove_percent=denoise_rm_ratio)  # only remove small clusters
 
         mask_points_remained = torch.from_numpy(np.asarray(mask_pcd.points)).to(mask_points)
         return mask_points_remained
@@ -218,7 +209,6 @@ class VoxelBlockGrid:
             mask_pts = frame_points[valid_mask]  # valid 3D points of this mask
 
             # 2.2: denoise
-            # multi_component_flag = self.get_mask_denoise_flag(seg_image, mask_id)
             mask_pts_remained = self.denoise_mask_pc(mask_pts, keep_max=True)
             if mask_pts_remained.shape[0] < self.few_voxel_threshold:
                 continue
