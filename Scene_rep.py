@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import torch
 import torch.utils.dlpack
-from torch.nn.utils.rnn import pad_sequence
 import open3d as o3d
 import open3d.core as o3c
 from sklearn.cluster import DBSCAN
@@ -333,9 +332,6 @@ class Scene_rep:
             self.c_mask_num += 1
             self.g_mask_num += 1
 
-        # *** 4.3: add or merge each mask's semantic feature to Distinct_Sem_Feature_Dict
-        self.maskGraph.add_ds_sem_features(frame_id, valid_mask_sem_features, frame_global_mask_id)
-
         # Step 5: for each newly added mask, extract its geometric feature by querying
         if self.get_mask_w_geo_feature.shape[0] == 0:
             mask_voxels_list = list(self.mask_voxels_coords.values())
@@ -433,20 +429,18 @@ class Scene_rep:
         if self.cfg["classifier"]["enable"]:
             self.metrics.find_mask_pairs(frame_id, c_mat, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat, c_thresh=self.contained_ratio, ut_mask=ut_mask)
 
-        # Step 2: Mask Merging Strategy 2: 合并supporter_num数比较高的
+        # Step 2: Mask Merging Strategy 2: supporter_num
         # 2.1: preparation
         c_mat_nd = c_mat
         mask_weight = self.merged_mask_weight[:self.c_mask_num]
         w_mat = torch.diag(mask_weight)
 
-        # 2.2： 计算每个mask pair的supporter数 (这里要结合merged_mask_weight)
+        # 2.2： compute supporter_num for each mask pair (according to merged_mask_weight)
         A = (c_mat_nd.T > self.containing_ratio) & (c_mat_nd > self.contained_ratio)
-        A = A.float()  # A的(i, j)值为1 <=> j对i的包含率>threshold_big & i对j的包含率>threshold_small
+        A = A.float()  # A[i, j]==1 <=> overlap_ratio[j, i]>threshold_big & overlap_ratio[i, j]>threshold_small
         A = set_diagonal_to_zero(A)  # set diagonals of containing matrix to zeros
-        supporter_num_mat = A @ w_mat @ A.T  # A @ diag @ A.T
+        supporter_num_mat = A @ w_mat @ A.T
         supporter_num_mat = supporter_num_mat * ut_mask.float()  # Tensor(c_mask_num, c_mask_num), dtype=float
-
-        # 2.3: 对support_num矩阵做二值化，只将supporter数>阈值的mask pair的边值置为1
         supporter_num_merge_mat = (supporter_num_mat >= self.merge_supporter_num)
 
         # Step 3: 找出最终需要被合并的所有masks, 并更新c_mat
@@ -469,7 +463,7 @@ class Scene_rep:
                 c_mat = self.get_containing_mat
                 c_mat = mask_matrix_rows_and_cols(c_mat, valid_merged_mask_ids)  # mask out rows & cols corresponding to invalid masks
 
-                # 4.1: 可merge方式1: a merged mask contains another merged mask > threshold_1
+                # 4.1: Merging rule 1: a merged mask contains another merged mask > threshold_1
                 contain_merge_mat = (c_mat > self.merge_contain_ratio)  # Tensor(c_mask_num, c_mask_num), dtype=bool
                 if torch.count_nonzero(contain_merge_mat) == 0:
                     break
@@ -480,8 +474,7 @@ class Scene_rep:
                 c_mat_r = retain_max_per_column(c_mat_merge_valid)
                 contain_merge_mat = c_mat_r.to(contain_merge_mat)
 
-                # 4.2: 可merge方式2 (iterative merge with semantic similarity):
-                # 注意: 这里规定, 对于每个merged mask, 在这一步中只能被最多一个其他的merged mask给contain, 防止出现一个小mask被多个大mask给contain, 然后出现导致这多个大mask被聚为一类的
+                # 4.2: Merging rule 2 (iterative merge with semantic similarity):
                 if self.with_feature:
                     sem_feature_mat = self.get_mask_features
                     geo_feature_mat = self.get_mask_geo_features
@@ -635,7 +628,7 @@ class Scene_rep:
             mask_geo_features_new[new_mask_counter] = self.get_mask_geo_features[mask_id_kept]
             mask_geo_features_mask_new[new_mask_counter] = self.get_mask_geo_features_mask[mask_id_kept]
             merged_mask_size_new.append(self.merged_mask_size[mask_id_kept])
-            merged_mask_weight_new[new_mask_counter] = self.get_merged_mask_weight[mask_id_kept]  # 记得，这里不是直接赋1，是赋该merged mask之前的weight值
+            merged_mask_weight_new[new_mask_counter] = self.get_merged_mask_weight[mask_id_kept]
             merged_mask_last_frame_new[new_mask_counter] = self.get_merged_mask_last_frame[mask_id_kept]
             new_mask_counter += 1
 
@@ -741,8 +734,8 @@ class Scene_rep:
         self.merged_mask_weight = merged_mask_weight_new
         self.merged_mask_last_frame = merged_mask_last_frame_new
 
-        # Step 3: 计算当前分割中valid merged mask的merge_mask_ids
-        mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])  # weight超过该阈值的merged mask才展示
+        # Step 3: select valid masks by weight
+        mask_weight_threshold = min(self.merge_time + 2, self.cfg["seg"]["mask_weight_threshold"])
         valid_merged_mask_ids = torch.where(self.merged_mask_weight[:self.c_mask_num] >= mask_weight_threshold)[0]
 
         if count_merge:

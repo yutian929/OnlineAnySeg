@@ -10,8 +10,10 @@ from Dataset.dataset import get_dataset
 import tool.config as config
 from Scene_rep import Scene_rep
 
-# max_frame_num = 610  # (for debugging) 终止的frame_ID
 max_frame_num = None
+
+
+"""branch: main"""
 
 
 if __name__ == '__main__':
@@ -72,7 +74,6 @@ if __name__ == '__main__':
                     # 2.3: periodically merge some rows and cols
                     if frame_id > 0 and frame_id % scene_rep.merge_frame_interval == 0:
                         scene_rep.update_masks(frame_id)
-        # END if
 
         # Step 2.4: update visualized segmentation result
         if scene_rep.vis_pc_flag:

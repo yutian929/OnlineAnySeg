@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import math
-import time
 
 from Instance import Instance
 from tool.geometric_helpers import compute_intersection, add_wo_redundant, compute_complementary_w_mask
@@ -78,43 +77,6 @@ class MaskGraph:
     def expand_vars(self):
         # TODO
         print(3)
-
-
-    # @brief: 对于新检测到的某一帧上的各masks, 判断它们的semantic features是否需要添加到ds_feature dict, 并记录每个raw mask(的global mask ID)对应的ds feature ID;
-    # @param new_sem_features: Tensor(new_mask_num, sem_feature_dim);
-    # @param global_mask_ids:
-    def add_ds_sem_features(self, frame_id, new_sem_features, global_mask_ids):
-        new_mask_num = len(new_sem_features)
-        assert new_mask_num == len(global_mask_ids), "INVALID mask nums"
-        new_sem_features = torch.stack(new_sem_features, dim=0)  # Tensor(new_mask_num, feature_dim)
-
-        if self.d_sem_feature_num > 0:
-            # Step 1: compute similarity between new features and existing features in dict
-            new_sem_features = new_sem_features / (new_sem_features.norm(dim=-1, keepdim=True) + 1e-7)  # normalization
-            sim_n2e = new_sem_features @ self.get_distinct_sem_features.T  # Tensor(new_mask_num, existing_mask_num)
-
-            # Step 2: for each new mask, find its most similar existing mask
-            max_sim, sim_indices = torch.max(sim_n2e, dim=-1)
-
-            # Step 3: for each new mask, judge whether its sem feature will be appended into the distinct_sem_feature dict
-            corr_ds_ids = torch.where(max_sim > self.sem_feature_ds_thresh, sim_indices, -1 * torch.ones_like(sim_indices))
-        else:
-            corr_ds_ids = -1 * torch.ones((new_mask_num, ), dtype=torch.int64)
-
-        # Step 4: for each mask, insert its semantic feature or record its corresponding distinct semantic feature
-        for i in range(new_mask_num):
-            global_mask_id = global_mask_ids[i]
-            if corr_ds_ids[i] == -1:
-                self.distinct_sem_features[self.d_sem_feature_num] = new_sem_features[i]
-                self.global2sem_id[global_mask_id] = self.d_sem_feature_num
-                self.d_sem_feature_num += 1
-            else:
-                self.global2sem_id[global_mask_id] = corr_ds_ids[i].item()
-
-        # ######################## TEST ########################
-        # added_feature_num = torch.count_nonzero(corr_ds_ids==-1).item()
-        # print("IN Frame %d: %d / %d new sem features are added, now total distinct sem feature num = %d" % (frame_id, added_feature_num, new_mask_num, self.d_sem_feature_num))
-        # ######################## END TEST ########################
 
 
     # @brief: update boundary voxels of the scene;
@@ -266,7 +228,7 @@ class MaskGraph:
         overlap_mask_size = torch.zeros_like(o_in_q_vis_count)  # mask size of each (merged) overlap mask
         for i, o_mask_id in enumerate(overlap_mask_ids):
             o_voxel_indices = self.instance_dict[o_mask_id.item()].mask_voxel_indices
-            o_mask_voxel_frame = self.voxel_in_frame_matrix[o_voxel_indices].clamp(max=1)  # 当前该overlap_mask在所对应的seg frame, Tensor(o_mask_voxel_num, seg_frame_num)
+            o_mask_voxel_frame = self.voxel_in_frame_matrix[o_voxel_indices].clamp(max=1)  # Tensor(o_mask_voxel_num, seg_frame_num)
             o_mask_voxel_frame = mask_frame.unsqueeze(0) * o_mask_voxel_frame  # only consider query mask's frame set, Tensor(o_mask_voxel_num, seg_frame_num)
             o_in_q_count_i = o_mask_voxel_frame.any(-1).sum()
             o_in_q_vis_count[i] = o_in_q_count_i
@@ -274,12 +236,12 @@ class MaskGraph:
             overlap_mask_size[i] = o_voxel_indices.shape[0]
 
         # Step 4: count containing ratio between query mask and each overlap mask
-        contain_ratio_q2o = overlap_mask_counts.float() / o_in_q_vis_count  # query mask对各overlap masks的包含率
+        contain_ratio_q2o = overlap_mask_counts.float() / o_in_q_vis_count  # the ratio that query mask contains overlap masks
         q_in_o_condition = (contain_ratio_q2o > self.contain_min_threshold) & torch.logical_or(o_in_q_vis_ratio > self.mask_visible_threshold , o_in_q_vis_count > self.mask_visible_min_overlap)
         contain_ratio_q2o_final = torch.where(q_in_o_condition, contain_ratio_q2o, torch.zeros_like(contain_ratio_q2o))
         contain_ratio_q2o_final = contain_ratio_q2o_final.clamp(max=1.)
 
-        contain_ratio_o2q = overlap_mask_counts.float() / q_in_o_vis_count  # overlap masks对query mask的包含率
+        contain_ratio_o2q = overlap_mask_counts.float() / q_in_o_vis_count  # the ratio that overlap masks contain query mask
         o_in_q_condition = (contain_ratio_o2q > self.contain_min_threshold) & torch.logical_or(q_in_o_vis_ratio > self.mask_visible_threshold, q_in_o_vis_count > self.mask_visible_min_overlap)
         contain_ratio_o2q_final = torch.where(o_in_q_condition, contain_ratio_o2q, torch.zeros_like(contain_ratio_o2q))
         contain_ratio_o2q_final = contain_ratio_o2q_final.clamp(max=1.)
@@ -334,7 +296,7 @@ class MaskGraph:
                 overlap_mask_indices = query_values_from_keys(mask_id2index, overlap_mask_ids, self.device)
                 overlap_counts_i[overlap_mask_indices] = overlap_mask_counts.float()
             overlap_counts_list.append(overlap_counts_i)
-        # END for
+
         overlap_count_mat = torch.stack(overlap_counts_list, dim=0)  # [i, j]表示 输入的第i个mask 与 输入的第j个mask 重合的voxel数, Tensor(a, a)
 
         # Step 3: compute contain ratio mat
