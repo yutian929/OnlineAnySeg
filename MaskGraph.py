@@ -26,16 +26,16 @@ class MaskGraph:
         self.mask_visible_min_overlap = self.cfg["mask"]["mask_visible_min_overlap"]  # default: 500
         self.contain_min_threshold = self.cfg["mask"]["contain_min_threshold"]  # default: 0.3
         self.max_voxel_num = self.voxel_hash_table.max_voxel_num
-        self.f_mask_voxels_clouds = {}  # a dict, key是mask的f_mask_id, 即(frame_id, mask_id); value是该mask对应voxel的coordinates(in World CS), Tensor(m_pts_num, ), dtype=int64, device=cuda;
-        self.mask_voxels_coords = {}  # a dict, key是merged mask的merged_mask_id(1D); value是该merged mask对应voxel的voxel_ids, Tensor(m_pts_num, ), dtype=int64, device=cuda;
+        self.f_mask_voxels_clouds = {}  # a dict, key is mask's f_mask_id, (frame_id, mask_id); value is mask's corresponding voxel coordinates(in World CS), Tensor(m_pts_num, ), dtype=int64, device=cuda;
+        self.mask_voxels_coords = {}  # a dict, key is merged mask's merged_mask_id(1D); value merged mask's corresponding voxel的voxel_ids, Tensor(m_pts_num, ), dtype=int64, device=cuda;
 
         self.contain_matrix = torch.zeros((self.t_mask_num, self.t_mask_num), dtype=torch.float32, device=self.device)
 
-        # ***  各个voxel在各seg frame上对应的mask_id (0表示该点在该帧上不属于任何一个mask), Tensor(max_voxel_num, seg_frame_num);
+        # *** mask_id of each voxel on each seg_frame, Tensor(max_voxel_num, seg_frame_num)
         self.voxel_in_frame_matrix = torch.zeros((self.max_voxel_num, self.seg_frame_num), dtype=torch.float32, device=self.device)  # fill-only (never be modified)
 
-        self.original_mask_in_frame_mat = []  # 每个原始mask所对应的seg_frame_ID (只添加不修改)
-        self.merged_mask_in_frame_mat = torch.zeros((self.t_mask_num, self.seg_frame_num), dtype=torch.float32, device=self.device)  # 各merged mask对应的seg frame (会添加也会修改)
+        self.original_mask_in_frame_mat = []  #  seg_frame_ID for each original mask (append only)
+        self.merged_mask_in_frame_mat = torch.zeros((self.t_mask_num, self.seg_frame_num), dtype=torch.float32, device=self.device)  # each merged mask's corresponding 的seg frame
         self.boundary_voxel_indices = None
 
         # Instance dict
@@ -43,24 +43,10 @@ class MaskGraph:
         self.color_bank = generate_distinct_colors(10000)  # RGB list, each RGB value belongs to [0, 1], Tensor(t_mask_num, 3), dtype=float32
         self.instance_dict = {}
 
-        # Distinct_Sem_Feature_Dict
-        # (Insight: 因为很多mask的semantic feature肯定是很相似的，所以没必要把每个mask的sem feature都单独记录下来)
-        self.max_ds_sem_num = 2500
-        self.sem_feature_ds_thresh = 0.85  # 如果一个新添加的mask的sem feature和dict里已有的某个sem feature的相似度高于这个阈值，那新来的那个sem feature就不用添加了
-        self.global2sem_id = {}  # key是每个raw mask的1D global mask ID, value是它对应的distinct semantic feature ID
-        self.d_sem_feature_num = 0
-        self.distinct_sem_features = torch.zeros((self.max_ds_sem_num, self.cfg["mask"]["feature_dim"]), dtype=torch.float32, device=self.device)  # Tensor(N, sem_feat_dim)
-    # END init()
 
     @property
     def get_original_mask_in_frame_mat(self):
         return torch.concat(self.original_mask_in_frame_mat,  dim=0)
-
-    @property
-    def get_distinct_sem_features(self):
-        col_ds_sem_features = self.distinct_sem_features[:self.d_sem_feature_num]
-        distinct_sem_features = col_ds_sem_features / (col_ds_sem_features.norm(dim=-1, keepdim=True) + 1e-7)  # normalization
-        return distinct_sem_features
 
     @property
     def cur_instance_num(self):
@@ -96,10 +82,6 @@ class MaskGraph:
 
 
     # @brief: for a set of original 2D masks in a new frame, record each mask's corresponding voxels (also processing boundary points)
-    # @param mask_dict
-    #-@return new_mask_voxel_dict
-    #-@return new_mask_indices_dict
-    #-@return mask_in_frame_list: 该帧中各mask所对应的seg frame, list of Tensor(seg_frame_num, ), 0/1, dtype=int32.
     def add_frame_masks(self, frame_id, mask_dict):
         seg_frame_id = frame_id // self.seg_interval
         appeared_voxel_indices = None
@@ -172,7 +154,7 @@ class MaskGraph:
     #-@return new_mask_counter: number of new masks, int.
     def keep_and_merge_masks(self, frame_id, c_mask_num_before, masks_to_keep, mask_clusters=None):
         instance_dict_new = {}
-        merged_mask_in_frame_mat_new = torch.zeros((c_mask_num_before, self.seg_frame_num), dtype=torch.float32, device=self.device)  # 各merged mask在各seg frame上可见的voxel数 (会添加也会修改)
+        merged_mask_in_frame_mat_new = torch.zeros((c_mask_num_before, self.seg_frame_num), dtype=torch.float32, device=self.device)  # visible voxel number that each merged mask on seg frames
 
         # Step 1: for each kept mask
         new_mask_counter = 0
@@ -197,12 +179,13 @@ class MaskGraph:
         return new_mask_counter
 
 
-    # @brief: 给定一个query mask(n个3D点坐标), 找到与之有overlap的各masks, 计算与各mask的overlap voxel num; 并同时计算该mask与各overlap masks互相之间的包含率;
+    # @brief: giving a quert mask (n 3D coordinates), find all masks that have overlap with it, and compute the overlap voxel number with each mask,
+    #         as well as the mutual containing ratio between each overlapping masks;
     # @param mask_frame: this mask's corresponding seg frame, 0/1, Tensor(seg_frame_num, );
-    # @param voxel_coords: Voxel coordinates(in World CS) of query mask, Tensor(n, 3), dtype=float32;
+    # @param voxel_coords: Voxel coordinates(in World Coordinate System) of query mask, Tensor(n, 3), dtype=float32;
     # @param id_mapping: mapping global_mask_id to merged_mask_id, list of int;
     # @param valid_merge_mask_ids: merge_mask_ids to count, list/None;
-    #-@return overlap_mask_ids: 与当前输入voxel set有overlap的所有masks的mask_ID, Tensor(o_mask_num, );
+    #-@return overlap_mask_ids: mask_IDs that has overlap with current input voxel set, Tensor(o_mask_num, );
     #-@return contain_ratio_q2o_final: containig ratio -- query mask to each overlap mask, Tensor(o_mask_num, );
     #-@return contain_ratio_o2q_final: containig ratio -- each overlap mask to query mask, Tensor(o_mask_num, ).
     def query_mask_under_visible_part(self, mask_frame, voxel_coords, id_mapping, valid_merge_mask_ids=None):
@@ -263,27 +246,27 @@ class MaskGraph:
         selected_mask_voxel_indices = [self.instance_dict[mask_id].mask_voxel_indices for mask_id in merged_mask_ids]  # voxel indices list of selected masks
 
         # Step 1: compute visible voxel numbers between input merged masks
-        all_masks_frame = self.merged_mask_in_frame_mat[merged_mask_ids]  # 所有input mask各自对应的seg frame, Tensor(a, seg_frame_num)
-        i_in_a_vis_count_list = []  # [i, j]表示输入的第i个mask在输入的第j个mask的frame set中可见的voxel数, list of Tensor(a, )
-        i_in_a_vis_ratio_list = []  # [i, j]表示输入的第i个mask在输入的第j个mask的frame set中的可见率, list of Tensor(a, )
+        all_masks_frame = self.merged_mask_in_frame_mat[merged_mask_ids]  # each input mask's corresponding seg frame, Tensor(a, seg_frame_num)
+        i_in_a_vis_count_list = []  # [i, j]: the visible voxel number that mask_i is projected to mask_j's frame set, list of Tensor(a, )
+        i_in_a_vis_ratio_list = []  # [i, j]: the visiblity ratio that mask_i is projected to mask_j's frame set, list of Tensor(a, )
         mask_id2index = {}  # mask_id-index mapping dict
-        vis_count_thresh_mat = torch.zeros((selected_mask_num, selected_mask_num), dtype=torch.float32, device=self.device)  # [i, j]表示 输入的第i个mask 在 输入的第j个mask的frame set 中如果被判为可见的min visible voxel数, Tensor(a, a)
+        vis_count_thresh_mat = torch.zeros((selected_mask_num, selected_mask_num), dtype=torch.float32, device=self.device)
 
         for i, mask_id in enumerate(merged_mask_ids):
             mask_id2index[mask_id] = i
             voxel_ids_i = selected_mask_voxel_indices[i]
             mask_i_size = voxel_ids_i.shape[0]
 
-            # (注释) 把 mask_i 投影到 所有masks的frame set 上
-            mask_voxel_frame = self.voxel_in_frame_matrix[voxel_ids_i].clamp(max=1.)  # mask_i的各voxels所对应的seg frames, Tensor(mask_voxel_num, seg_frame_num)
+            # project 3D mask_i to each mask's frame set
+            mask_voxel_frame = self.voxel_in_frame_matrix[voxel_ids_i].clamp(max=1.)  # seg_frames corresponding to mask_i's voxels, Tensor(mask_voxel_num, seg_frame_num)
             mask_voxel_i_mask = (mask_voxel_frame @ all_masks_frame.T).clamp(max=1.)  # whether each voxel in this mask can be seen by each input mask, Tensor(mask_voxel_num, a)
             i_in_a_vis_count = torch.sum(mask_voxel_i_mask, dim=0)  # visible size of current mask(mask_i) on each input mask's frame set, Tensor(a, )
             i_in_a_vis_count_list.append(i_in_a_vis_count)
             i_in_a_vis_ratio_list.append(i_in_a_vis_count / mask_i_size)
             vis_count_thresh_mat[i, :] = mask_i_size * self.mask_visible_threshold
 
-        vis_count_mat = torch.stack(i_in_a_vis_count_list, dim=0)  # [i, j]表示 输入的第i个mask 在 输入的第j个mask的frame set 中可见的voxel数, Tensor(a, a)
-        vis_ratio_mat = torch.stack(i_in_a_vis_ratio_list, dim=0)  # [i, j]表示 输入的第i个mask 在 输入的第j个mask的frame set 中的可见率, Tensor(a, a)
+        vis_count_mat = torch.stack(i_in_a_vis_count_list, dim=0)  # [i, j]: the visible voxel number that mask_i is projected to mask_j's frame set, Tensor(a, a)
+        vis_ratio_mat = torch.stack(i_in_a_vis_ratio_list, dim=0)  # [i, j]: the visiblity ratio that mask_i is projected to mask_j's frame set, Tensor(a, a)
 
         # Step 2: for each input mask, compute its overlap masks and corresponding overlap voxel numbers
         overlap_counts_list = []
@@ -291,16 +274,16 @@ class MaskGraph:
             # query hash table, find overlap masks; and for each overlap mask, count its overlap voxel number
             overlap_mask_ids, overlap_mask_counts, voxel_ids = self.voxel_hash_table.query_mask_w_mapping(mask_voxel_coords, id_mapping, merged_mask_ids)
 
-            overlap_counts_i = torch.zeros((selected_mask_num, ), dtype=torch.float32, device=self.device)  # 该mask_i与每个input mask的overlap voxel数, Tensor(a, )
+            overlap_counts_i = torch.zeros((selected_mask_num, ), dtype=torch.float32, device=self.device)  # the overlap voxel number between mask_i and each input mask, Tensor(a, )
             if overlap_mask_ids.shape[0] > 0:
                 overlap_mask_indices = query_values_from_keys(mask_id2index, overlap_mask_ids, self.device)
                 overlap_counts_i[overlap_mask_indices] = overlap_mask_counts.float()
             overlap_counts_list.append(overlap_counts_i)
 
-        overlap_count_mat = torch.stack(overlap_counts_list, dim=0)  # [i, j]表示 输入的第i个mask 与 输入的第j个mask 重合的voxel数, Tensor(a, a)
+        overlap_count_mat = torch.stack(overlap_counts_list, dim=0)  # [i, j]: the overlap voxel number between i-th mask and j-th mask, Tensor(a, a)
 
         # Step 3: compute contain ratio mat
-        contained_ratio_mat = overlap_count_mat / vis_count_mat  # [i, j]表示 输入的第i个mask 被 输入的第j个mask 包含的包含率, Tensor(a, a)
+        contained_ratio_mat = overlap_count_mat / vis_count_mat  # [i, j]: the ratio that i-th mask is contained by j-th mask, Tensor(a, a)
 
         contain_ratio_condition = torch.logical_or(vis_ratio_mat > self.mask_visible_threshold, vis_count_mat > self.mask_visible_min_overlap) & (contained_ratio_mat > self.contain_min_threshold)
         contained_ratio_mat_valid = torch.where(contain_ratio_condition, contained_ratio_mat, torch.zeros_like(contained_ratio_mat))

@@ -415,19 +415,10 @@ class Scene_rep:
         # Step 1: Mask Merging Strategy 1: Overall Similarity
         # 1.1: compute similarity matrix based on: IoU + semantic feature similarity + geometric feature similarity
         final_sim_mat, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat = self.metrics.compute_final_sim_mat(c_mat, sem_feature_mat, geo_feature_mat, use_IoU=True)
-
-        if self.cfg["classifier"]["enable"]:
-            cls_positive_mask = self.metrics.bi_plane_classify(iou_mat, geo_feature_sim_mat, sem_feature_sim_mat)  # ***(new version) 基于动态调整的平面的分类
-            sim_merge_mat = ut_mask & cls_positive_mask
-        else:
-            sim_merge_mat = ut_mask & (final_sim_mat > self.sim_merge_thresh)  # ***(default) 基于固定平面的分类
+        sim_merge_mat = ut_mask & (final_sim_mat > self.sim_merge_thresh)  # ***(default) 基于固定平面的分类
 
         iou_merge_mat = ut_mask & (c_mat > self.merge_overlap_thresh) & (c_mat.T > self.merge_overlap_thresh)  # Double check: only mask pairs with mutual OR > threshold can be merged
         sim_merge_mat = sim_merge_mat & iou_merge_mat
-
-        # 1.2: Bi-plane Tracking
-        if self.cfg["classifier"]["enable"]:
-            self.metrics.find_mask_pairs(frame_id, c_mat, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat, c_thresh=self.contained_ratio, ut_mask=ut_mask)
 
         # Step 2: Mask Merging Strategy 2: supporter_num
         # 2.1: preparation
@@ -497,15 +488,8 @@ class Scene_rep:
                 self.save_merging_result(frame_id, valid_merged_mask_ids=None)  # *** save result after merging
         # END Step 4
 
-
-        # Step 5: remove masks and updat3 tracked mask pairs
-        # 5.1: remove mis-segmented raw masks periodically
+        # Step 5: remove mis-segmented raw masks periodically
         self.select_masks_to_remove(frame_id)
-
-        # 5.2: update mask_IDs of tracked mask pairs, and re-compute score for each pair in Hesitate Area currently
-        if self.cfg["classifier"]["enable"]:
-            self.update_tracked_mask_pairs(frame_id)
-
 
         # Step 6: update segmented PC for visualization
         if self.vis_pc_flag:
@@ -527,17 +511,6 @@ class Scene_rep:
         torch.cuda.empty_cache()
         print("Finish merging at frame_%d ! Current merged mask number = %d" % (frame_id, self.c_mask_num))
     # END update_masks()
-
-
-    def update_tracked_mask_pairs(self, frame_ID):
-        # Step 1: for latest all merged masks, compute the scores between candidate pairs
-        c_mat, sem_feature_mat, geo_feature_mat = self.get_containing_mat, self.get_mask_features, self.get_mask_geo_features
-
-        # Step 2: compute similarity matrix based on: IoU + semantic feature similarity + geometric feature similarity
-        final_sim_mat, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat = self.metrics.compute_final_sim_mat(c_mat, sem_feature_mat, geo_feature_mat, use_IoU=True)
-
-        # Step 3: adjust bi-classifier plane according to Positive Set and Negative Set
-        self.metrics.update_classifier(frame_ID, self.raw_ID2new_ID, iou_mat, sem_feature_sim_mat, geo_feature_sim_mat)
 
 
     # @brief: invoked function for periodical mask removing;
