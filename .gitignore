@@ -16,7 +16,6 @@ third_party/*
 *.ply
 
 Scene_rep_backup.py
-Time_counter.py
 Bi_plane_classifier.py
 
 readme.txt

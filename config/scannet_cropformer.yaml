@@ -125,8 +125,8 @@ classifier:
 
 save:
   save_mesh: False
-  save_interval: 200
-  ckpt_interval: 200
+  save_interval: 500
+  ckpt_interval: 500
 
 vis:
   vis_color: False

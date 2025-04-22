@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import open3d as o3d
 
-from tool.visualization_helpers import get_new_pallete,
+from tool.visualization_helpers import get_new_pallete
 
 
 class Vis_color:
