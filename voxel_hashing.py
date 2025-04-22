@@ -54,6 +54,7 @@ class VoxelHashTable:
             block_coords = o3c.Tensor.from_numpy(block_coords.cpu().numpy()).to(device=self.device_o3c)
         return block_coords
 
+
     # @brief: (***) transfer given Voxel coordinates(voxel's World coordinate) to 1D voxel indices(which is also a voxel's key in voxel hash tabel);
     # @param voxel_coords: Tensor(n, 3), dtype=float32;
     #-@return: Tensor(n, ), dtype=int64.
@@ -77,12 +78,11 @@ class VoxelHashTable:
         return voxel_indices
 
 
-    # @brief: Hash function - 计算给定3D voxel坐标的
-    # @param voxel_coords: n个给定点的3D Voxel坐标, Tensor(n, 3), dtype=int64;
-    #-@return: 这n个坐标各自对应的hash key, Tensor(n, ), dtype=int64.
+    # @brief: Hash function - compute hash keys for 3D voxel coordinates.
     def get_hash_keys(self, voxel_coords):
         pts_key = self.voxel_coords2voxel_indices(voxel_coords, change_to_o3c=False)
         return pts_key
+
 
     # @brief: insert a new mask --- add its global_mask_id to all its related voxels
     # @param voxel_coords: Voxel coordinates(in World CS), Tensor(n, 3), dtype=float32;
@@ -96,9 +96,6 @@ class VoxelHashTable:
                 self.hash_table[voxel_id] = set()
             self.hash_table[voxel_id].add(global_mask_id)
 
-    def remove_mask_voxels(self, voxel_coords, global_mask_id):
-        voxel_ids = self.get_hash_keys(voxel_coords)  # Tensor(n, ), dtype=int64
-        voxel_ids = voxel_ids.tolist()
 
     # @brief: for a batch of given voxels, compute overlap mask_ids and their overlap count;
     # @param voxel_coords: Voxel coordinates(in World CS), Tensor(n, 3), dtype=float32;
