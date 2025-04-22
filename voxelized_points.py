@@ -178,7 +178,7 @@ class VoxelBlockGrid:
     # @brief: giving a segmented 2D mask image(and depth image), find the voxels corresponding to each mask;
     # @param depth_image: Tensor(H, W);
     # @param pose_c2w: Tensor(4, 4);
-    # @param frame_voxel_coords: 该帧所包含的voxel的世界坐标, Tensor(v_num, 3), dtype=float32;
+    # @param frame_voxel_coords: voxels contained by this frame (in World CS), Tensor(v_num, 3), dtype=float32;
     # @param seg_image: segmentation mask image of this frame, each pixel corresponds to mask_id, Tensor(H, W), dtype=uint8, device=cuda;
     # @param mask_features: visual embedding of each mask in this frame, Tensor(mask_num, 512), dtype=float32;
     #-@return mask_info: voxel coordinates corresponding to each 2D mask, {mask_id: (voxel_coord0, voxel_coord1, voxel_coord2, ...)}, dict of Tensor, dtype=float32;
@@ -211,13 +211,13 @@ class VoxelBlockGrid:
                 continue
 
             # 2.1: extract corresponding points of this mask
-            segmentation_mask = (seg_image_reshape == mask_id)  # 所有像素上mask_id等于给定mask_values的那些像素的mask, Tensor(H * W, ), dtype=bool
-            valid_mask = segmentation_mask[depth_mask]  # 该帧上mask_id等于当前给定值 且 depth>0 的像素的mask, Tensor(pts_num, )
+            segmentation_mask = (seg_image_reshape == mask_id)
+            valid_mask = segmentation_mask[depth_mask]
             if torch.count_nonzero(valid_mask) < self.few_pixel_threshold:
                 continue
-            mask_pts = frame_points[valid_mask]  # 该mask所对应的valid 3D points
+            mask_pts = frame_points[valid_mask]  # valid 3D points of this mask
 
-            # 2.2: 去noise, 得到该mask对应的voxels centers在世界坐标系中的位置
+            # 2.2: denoise
             # multi_component_flag = self.get_mask_denoise_flag(seg_image, mask_id)
             mask_pts_remained = self.denoise_mask_pc(mask_pts, keep_max=True)
             if mask_pts_remained.shape[0] < self.few_voxel_threshold:
