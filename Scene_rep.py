@@ -546,9 +546,9 @@ class Scene_rep:
         c_mask_num_before = self.c_mask_num
         merged_mask_id_clusters = do_clustering(merge_mat)  # list of ndarray(n_i)
 
-        # (1) 为每个cluster assign一个新的merged_mask_id, 同时reassign其他所有没有动的merged_masks的merged_mask_id;
-        # (2) 将containing_matrix中那些需要被合并的行(和列)先抽出来，然后再把合并后的行(和列)append到末尾;
-        # (3) 更新 global2merged_mask_id, merged_mask_size, mask_voxels_indices, merged_mask_weight这4个成员
+        # (1) assign a new merged_mask_id for each cluster, and reassign other merged masks' merged_mask_id;
+        # (2) in containing matrix, firstly remove rows (and cols) corresponding to masks that need to be merged, then append new rows (and cols) for merged masks to the end;
+        # (3) update members: global2merged_mask_id, merged_mask_size, mask_voxels_indices, merged_mask_weight
 
         # Step 1: identify rows(and cols) to keep and to merge
         rows_to_keep = []  # list of int
@@ -607,8 +607,8 @@ class Scene_rep:
         valid_merge_mask_ids = global2merged_mask_id_new[global2merged_mask_id_new != -1]
         valid_merge_mask_ids = torch.unique(valid_merge_mask_ids).tolist()  # mask_IDs of all kept merged masks
 
-        merged_mask_voxel_coords_list = []  # 所有valid merged mask的points的voxel coordinates
-        merged_mask_ids_new = []  # 所有valid merged mask的新的merged_mask_id
+        merged_mask_voxel_coords_list = []  # voxel coordinates of all valid merged mask
+        merged_mask_ids_new = []
         merged_mask_num_valid = 0
         rows_to_merge_valid = []
         mask_cluster_list = []
