@@ -278,10 +278,11 @@ Parts of the code are modified from [MaskClustering](https://github.com/PKU-EPIC
 ## 6. Citation
 If you find our code or paper useful, please cite
 ```
-@article{tang2025onlineanyseg,
+@inproceedings{tang2025onlineanyseg,
   title={OnlineAnySeg: Online Zero-Shot 3D Segmentation by Visual Foundation Model Guided 2D Mask Merging},
   author={Tang, Yijie and Zhang, Jiazhao and Lan, Yuqing and Guo, Yulan and Dong, Dezun and Zhu, Chenyang and Xu, Kai},
-  journal={arXiv preprint arXiv:2503.01309},
+  booktitle={Proceedings of the Computer Vision and Pattern Recognition Conference},
+  pages={3676--3685},
   year={2025}
 }
 ```
