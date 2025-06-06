@@ -16,7 +16,7 @@
 ## TODOs
 
 * [x] Release the main code of OnlineAnySeg.
-* [x] Release the evaluation code (SOON).
+* [x] Release the evaluation code.
 * [ ] Improvement: replace the threshold-based mask merging strategy with an adaptive approach.
 
 
@@ -210,7 +210,13 @@ When finished, the 3D reconstruction and instance segmentation output of this se
 TODO
 
 ## 4. Evaluation
-#### 4.1 All sequences
+#### 4.1 Preparing Ground-Truth Segmentation Results
+We adopt the same format for ground-truth instance segmentation results as used in [MaskClustering](https://github.com/PKU-EPIC/MaskClustering). For detailed instructions on how to prepare the data, please refer to the [Data Preparation](https://github.com/PKU-EPIC/MaskClustering?tab=readme-ov-file#data-preparation) section of their repository.
+
+For convenience, we provide the preprocessed ground-truth segmentation results at `eval/scannet200/validation/scannet_gt_seg.zip` and `eval/sceneNN/sceneNN_gt_seg.zip`. Simply unzip these files in the current directory to use them directly.
+
+
+#### 4.2 All sequences
 The command to run evaluation code is:
 ```
 # python eval/evaluate_seqs.py --result_dir <output_dir> \
@@ -243,7 +249,7 @@ For example, to evaluate ScanNet dataset, the running command is:
 ```
 </details>
 
-#### 4.2 Selected sequences
+#### 4.3 Selected sequences
 If you want to elvaluate one or more selected sequences, you can easily add `--seq_name`, and `<selected_sccene_ids>` should be split by comma:
 ```
 # python eval/evaluate_seqs.py --result_dir <output_dir> \
