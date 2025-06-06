@@ -15,8 +15,8 @@
 
 ## TODOs
 
-* [X] Release the main code of OnlineAnySeg.
-* [ ] Release the evaluation code (SOON).
+* [x] Release the main code of OnlineAnySeg.
+* [x] Release the evaluation code (SOON).
 * [ ] Improvement: replace the threshold-based mask merging strategy with an adaptive approach.
 
 
@@ -164,14 +164,15 @@ As long as the segmentation results follow the directory structure above, the fo
 
 (Step 2) process the RGB-D sequence:
 ```
-# python main.py -c <config_file> --seq_name <scene_id> -d <sequence_dir> -i <seg_sequence_dir>
+# python main.py -c <config_file> --seq_name <scene_id> -d <sequence_dir> -i <seg_sequence_dir> -o <output_dir>
 ```
 
 For example, if the given sequence is "scene0011_00" in ScanNet dataset, the running command is:
 ```
 # python main.py -c config/scannet_cropformer.yaml --seq_name scene0011_00 \
     -d ./data/scannet/scene0011_00/frames \
-    -i ./data/scannet/seg_result/scene0011_00
+    -i ./data/scannet/seg_result/scene0011_00 \
+    -o ./output/scannet
 ```
 
 <details>
@@ -182,7 +183,8 @@ For example, if the given sequence is "scene0011_00" in ScanNet dataset, the run
 ```
 # python main.py -c config/sceneNN_cropformer.yaml --seq_name 011 \
     -d ./data/SceneNN/011 \
-    -i ./data/SceneNN/seg_result/011
+    -i ./data/SceneNN/seg_result/011 \
+    -o ./output/SceneNN
 ```
 </details>
 
@@ -194,7 +196,8 @@ For example, if the given sequence is "scene0011_00" in ScanNet dataset, the run
 ```
 # python main.py -c config/mydataset_cropformer.yaml --seq_name My_sequence1 \
     -d ./data/My_dataset/My_sequence1 \
-    -i ./data/My_dataset/seg_result/My_sequence1
+    -i ./data/My_dataset/seg_result/My_sequence1 \
+    -o ./output/My_dataset
 ```
 </details>
 
@@ -207,7 +210,60 @@ When finished, the 3D reconstruction and instance segmentation output of this se
 TODO
 
 ## 4. Evaluation
-TODO
+#### 4.1 All sequences
+The command to run evaluation code is:
+```
+# python eval/evaluate_seqs.py --result_dir <output_dir> \
+    --gt_dir <gt_dataset_dir> \
+    --gt_pc_pattern <gt_pointcloud_file_pattern> \
+    --gt_seg_dir <gt_dataset_seg_dir> \
+    --gt_seg_pattern <gt_seg_file_pattern>
+```
+
+For example, to evaluate ScanNet dataset, the running command is:
+```
+# python eval/evaluate_seqs.py --result_dir ./output/scannet \
+    --gt_dir XXX/scannet \
+    --gt_pc_pattern %s/%s_vh_clean_2.ply \
+    --gt_seg_dir ./eval/scannet200/validation \
+    --gt_seg_pattern %s.txt
+```
+
+<details>
+  <summary>[Example for evaluating SceneNN sequences (click to expand)]</summary>
+
+  For example, to evaluate SceneNN dataset, the running command is:
+
+```
+# python eval/evaluate_seqs.py --result_dir ./output/SceneNN \
+    --gt_dir XXX/SceneNN \
+    --gt_pc_pattern %s/%s.ply \
+    --gt_seg_dir ./eval/sceneNN \
+    --gt_seg_pattern %s.txt
+```
+</details>
+
+#### 4.2 Selected sequences
+If you want to elvaluate one or more selected sequences, you can easily add `--seq_name`, and `<selected_sccene_ids>` should be split by comma:
+```
+# python eval/evaluate_seqs.py --result_dir <output_dir> \
+    --seq_name <selected_sccene_ids> \
+    --gt_dir <gt_dataset_dir> \
+    --gt_pc_pattern <gt_pointcloud_file_pattern> \
+    --gt_seg_dir <gt_dataset_seg_dir> \
+    --gt_seg_pattern <gt_seg_file_pattern>
+```
+
+For example, to evaluate "scene0011_00" and "scene0015_00" in ScanNet dataset, the running command is:
+```
+# python eval/evaluate_seqs.py --result_dir ./output/scannet \
+    --seq_name scene0011_00,scene0015_00 \
+    --gt_dir XXX/scannet \
+    --gt_pc_pattern %s/%s_vh_clean_2.ply \
+    --gt_seg_dir ./eval/scannet200/validation \
+    --gt_seg_pattern %s.txt
+```
+
 
 ## 5. Acknowledgement
 Parts of the code are modified from [MaskClustering](https://github.com/PKU-EPIC/MaskClustering) and [OpenFusion](https://github.com/UARK-AICV/OpenFusion). Thanks to the original authors.
