@@ -28,3 +28,4 @@ eval/scannet200/validation/*
 eval/sceneNN/*
 !eval/sceneNN/sceneNN_gt_seg.zip
 
+/data/

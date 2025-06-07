@@ -98,10 +98,16 @@ class SceneNNDataset(Dataset):
 
     def load_poses(self):
         poses = []
-        posefiles = natsorted( glob.glob( os.path.join(self.data_location, "pose/*.txt") ) )
-        for posefile in posefiles:
-            _pose = torch.from_numpy(np.loadtxt(posefile).astype("float32"))
-            poses.append(_pose)
+        if self.cfg["dataset"] == "scenenn":
+            posefiles = natsorted( glob.glob( os.path.join(self.data_location, "pose/*.npy") ) )
+            for posefile in posefiles:
+                _pose = torch.from_numpy(np.load(posefile).astype("float32"))
+                poses.append(_pose)
+        else:
+            posefiles = natsorted( glob.glob( os.path.join(self.data_location, "pose/*.txt") ) )
+            for posefile in posefiles:
+                _pose = torch.from_numpy(np.loadtxt(posefile).astype("float32"))
+                poses.append(_pose)
         poses = torch.stack(poses, dim=0).to(self.device)
         return poses
 
@@ -123,7 +129,10 @@ class SceneNNDataset(Dataset):
 
 
     def __getitem__(self, index):
-        fixed_digit_index = str(index + 1).zfill(5)  # int --> str (fill 0 until 5 digits), starting from 00001
+        if self.cfg["dataset"] == "scenenn":
+            fixed_digit_index = str(index*40 + 1).zfill(5)
+        else:
+            fixed_digit_index = str(index + 1).zfill(5)  # int --> str (fill 0 until 5 digits), starting from 00001
         color_img_path = os.path.join(self.data_location, "image", "image%s.png" % fixed_digit_index)
         depth_img_path = os.path.join(self.data_location, "depth", "depth%s.png" % fixed_digit_index)
 
